@@ -9,20 +9,20 @@ function [T_g, u_g, G, x_O2_g, delta_i, FMC, ...
 geometry="rectangle";  
 
 % Conditions of the particle 
-delta_i     = 5e-4;   
+delta_i     = 1.25e-2;   
 % NOTE: delta_i = Initial half-thickness for rectagular particles 
 % or intial radius for cylindrical and spherical particles
-FMC         = 0.0;     % Initial fuel moisture content [-]
+FMC         = 0.1;     % Initial fuel moisture content [-]
 temp_surf_i = 300;     % Initial surface temperature [K]
 A_rectangle = 1e-0;    % Area of exposed surface (for rectangular particles only) [m2]
 L_cylinder  = 1e-0;    % Cylinder length (for cylindrical particles only) [m]
 
 % Duration of the simulation [s]
-T_end = 100;
+T_end = 1800;
 
 % Initial conditions of local gas
-T_g    = 700;     % Local ambient gas temperature [K]
-u_g    = 0;       % Local gas velocity [m/s]
+T_g    = 300;     % Local ambient gas temperature [K]
+u_g    = 0.3;       % Local gas velocity [m/s]
 G      = 50e+3;   % Averaged irradiation [W/m2]
 x_O2_g = 0;       % Local oxygen mole fraction in ambient gas [-]
 
@@ -59,7 +59,7 @@ A_R2      = 5.25e+7;    % Pre-exponential factor [1/s]
 E_R2      = 1.256e+5;   % Activation energy [J/mol]
 Ta_R2     = E_R2/R;     % Activation temperature [K]
 DeltaH_R2 =-0;          % Heat of pyrolysis [J/kg] (< 0, endothermic)
-eta_c     = 0.0;        % Char yield [-]
+eta_c     = 0.2;        % Char yield [-]
 
 % Char oxidation model (reaction R3)
 A_R3      = 0;        % Pre-exponential factor [1/s]

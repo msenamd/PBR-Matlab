@@ -41,7 +41,7 @@ fprintf(' tau_RR1_min, (tau_RR1_min/dt) = %g %g \n', ...
           tau_RR1_min,(tau_RR1_min/dt));
 tau_RR2_min = 1000;
 for i=1:101
-    tem_tmp = 300 + (i-1)*700/100; % Cover range 300 <= temp_tmp <= 1000 K
+    tem_tmp = 300 + (i-1)*1200/100; % Cover range 300 <= temp_tmp <= 1500 K
     if(A_R2 ~= 0)
         tau_RR2 = 1/(A_R2*exp(-Ta_R2/tem_tmp));
         tau_RR2_min = min(tau_RR2_min,tau_RR2);
@@ -50,13 +50,13 @@ end
 fprintf(' tau_RR2_min, (tau_RR2_min/dt) = %g %g \n', ...
           tau_RR2_min,(tau_RR2_min/dt));
 % Enforce (tau_RR1_min/dt) and (tau_RR2_min/dt) >=10
-% scale = min((tau_RR1_min/dt),(tau_RR2_min/dt));
-% if( scale < 10 )
-%     dt = dt*0.1*scale;   % Modified time step
-%     FO = alpha_max*dt/dx_i^2;
-%     fprintf(' dt = %g \n',dt);
-%     fprintf(' FO = %g \n',FO);
-% end
+scale = min((tau_RR1_min/dt),(tau_RR2_min/dt));
+if( scale < 10 )
+    dt = dt*0.1*scale;   % Modified time step
+    FO = alpha_max*dt/dx_i^2;
+    fprintf(' dt = %g \n',dt);
+    fprintf(' FO = %g \n',FO);
+end
 % End analysis of chemical time scales
 %
 

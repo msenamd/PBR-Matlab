@@ -25,13 +25,13 @@ fprintf(' dx_i = %g \n',dx_i);
 fprintf(' nx_i = %g \n',nx_i);
 fprintf(' \n');
 
-% adjust time step
-dt=timeStep(FMC, A_R1, Ta_R1, A_R2, Ta_R2, rho_m, rho_vs, rho_c, ...
+% calculate initial time step
+dt_i=timeStep(FMC, A_R1, Ta_R1, A_R2, Ta_R2, rho_m, rho_vs, rho_c, ...
        k_m, k_vs, k_c, c_m, c_vs, c_c, dx_i );
-%  Adjust number of time steps
-n_f   = round(T_end/dt);   % Total number of time steps
+n_f   = round(T_end/dt_i);   % Total number of time steps
 fprintf(' n_f = %g \n',n_f);
 fprintf(' \n');
+pause;
 
 % Parameter that contols the frequency at which output quantities are saved
 i_output = 100;
@@ -42,7 +42,9 @@ time      = 0;
 n_output  = 0;
 
 nx_new    = nx_i;
-temp_surf   = temp_surf_i;
+
+temp_surf   = temp_surf_i;        % Surface temperature [K] (t = 0)
+
 sigma       = 5.67e-8;   % Stefan-Boltzmann constant [W/m2/K4]
 
 % Convection coefficient calculation
@@ -90,10 +92,10 @@ x_c_i  = 0;                         % Vol. frac. of solid char (t = 0)
 
 rho_p_i = rho_m*x_m_i + rho_vs*x_vs_i;   % Solid mass density (t = 0)
 
-% Allocate arrays 
-dx    = dx_i   *ones(nx_i,1);     % Array containing grid cell sizes
-temp  = temp_surf_i*ones(nx_i,1); % Array containing solid temperatures
-rho_p = rho_p_i*ones(nx_i,1);     % Array containing solid mass densities
+dx    = dx_i   *ones(nx_i,1); % Array containing grid cell sizes
+dt    = dt_i;                 % Time increment
+temp  = T_g    *ones(nx_i,1); % Array containing solid temperatures
+rho_p = rho_p_i*ones(nx_i,1); % Array containing solid mass densities
 x_m   = x_m_i  *ones(nx_i,1); % Array containing vol. frac. of moisture
 x_vs  = x_vs_i *ones(nx_i,1); % Array containing vol. frac. of virgin solid
 x_c   = x_c_i  *ones(nx_i,1); % Array containing vol. frac. of solid char
@@ -105,13 +107,15 @@ q_surf_save    = q_surf_i *ones(round(n_f/i_output),1);   % Surf. heat flux
 temp_surf_save = temp_surf*ones(round(n_f/i_output),1);   % Surf. temp.
 temp_back_save = temp_surf*ones(round(n_f/i_output),1);   % Back temp.
 delta_save     = delta_i  *ones(round(n_f/i_output),1);   % Thickness
+dt_save        = dt_i     *ones(round(n_f/i_output),1);   % Time increment
+
 nx_save    = nx_i  *ones(round(n_f/i_output),1);    % Number of cells
 XC_save    =        ones(nx_i,round(n_f/i_output)); % Coord. cell centers
 TEMP_save  = temp_surf*ones(nx_i,round(n_f/i_output)); % Solid temperature
-RHOP_save  = rho_vs*ones(nx_i,round(n_f/i_output)); % Solid mass density
-XM_save    = x_m_i *ones(nx_i,round(n_f/i_output)); % Vol. frac. - moisture
-XVS_save   = x_vs_i*ones(nx_i,round(n_f/i_output)); % Vol. frac. - virgin solid
-XChar_save = x_c_i*ones(nx_i,round(n_f/i_output));  % Vol. frac. - char
+RHOP_save  = rho_p_i*ones(nx_i,round(n_f/i_output)); % Solid mass density
+XM_save    = x_m_i *ones(nx_i,round(n_f/i_output)); % Vol. frac. moisture
+XVS_save   = x_vs_i*ones(nx_i,round(n_f/i_output)); % Vol. frac. virgin s.
+XChar_save = x_c_i*ones(nx_i,round(n_f/i_output));  % Vol. frac. char
 RR1_save   =       zeros(nx_i,round(n_f/i_output)); % Reaction rate R1
 RR2_save   =       zeros(nx_i,round(n_f/i_output)); % Reaction rate R2
 RR3_save   =       zeros(nx_i,round(n_f/i_output)); % Reaction rate R3
@@ -138,25 +142,16 @@ else                % Charring material with no char oxidation
 end
 
 
-
 %% Time loop
-while ((n ~= n_f) & (flag_burnout ~= 2))
+while ((n ~= n_f) && (flag_burnout ~= 2))
     
     n      = n + 1;
-    time   = time + dt;
-    
-    if(mod(n,i_output)==0)
-        n_output            = n_output+1;
-        time_save(n_output) = time;
-        fprintf(' \n');
-        fprintf(' n_output = %g, time = %g \n', ...
-                  n_output,time_save(n_output));
-    end
     
     % Solution at previous time step (t = time-dt)
     nx_old    = nx_new;
     dV_old    = dV;
     dx_old    = dx;
+    dt_old    = dt;    
     temp_old  = temp;
     rho_p_old = rho_p;
     x_m_old   = x_m;
@@ -167,24 +162,101 @@ while ((n ~= n_f) & (flag_burnout ~= 2))
     temp_surf_old = temp_surf;
     
     % Solution at new time step (t = time)
+    
+    % Time step restriction:
+    % - Update dt such that abs(Tp(n+1)-Tp(n)) <= Threshold
+    %   Estimate Tp(n+1) from explicit treatment    
+    [temp] = energy_conservation_explicit(dt_old,q_surf_old, ...
+                 temp_old,x_m_old,x_vs_old,x_c_old,...
+                 xRight,xCenter,dV,nx_old,geometry,A_rectangle,L_cylinder);
+    temp   = temp';
+     
+    DeltaTemp_max = max( abs(temp-temp_old) );
+    
+    Threshold = 10;
+    if( DeltaTemp_max > 0 )
+        dt = dt_old*Threshold/DeltaTemp_max;
+        % Avoid strong variations in dt
+        if( n > 1)
+            dt = max(0.9*dt_old,min(1.1*dt_old,dt)); % Factor 10%
+        end
+    else
+        dt = dt_old;
+    end
+    
+    time   = time + dt;
+    if(mod(n,i_output)==0)
+        n_output            = n_output+1;
+        time_save(n_output) = time;
+        fprintf(' \n');
+        fprintf(' n_output = %g, time = %g \n', ...
+                  n_output,time_save(n_output));
+    end    
+    
+    % - Calculate temperature
+    %
+    % Note: solve dTp/dt = RHS = (RHS1+RHS2) where RHS1 is energy release
+    % due to pyrolysis/char oxidation and RHS2 is heat conduction plus
+    % gas-to-solid heat transfer at the exposed surface
+    %
+    % Discretization (implicit):
+    %   (Tp(n+1)-Tp(n))/dt = RHS1 where RHS1 is evaluated at Tp(n+1) using
+    %                             linearization
+    %   (Tp(n+1)-Tp(n))/dt = RHS2 where RHS2 is evaluated using
+    %                             Crank-Nicolson
+    %
+    % Linearization of RHS1 (pyrolysis/char oxidation):
+    %   RHS1 = RHS1_old + dRHS1dT_old*(Tp-temp_old)
+    %
+    % Operator splitting method (Strang's method)
+    %   Step 1: 0.25*dTp/dt = (0.5*RHS1) + (0.5*dRHS1dT)*(Tp-temp_old)
+    %           t(n) <= t <= t(n+0.25)
+    %   Step 2: 0.5*dTp/dt = (1.0*RHS2)
+    %           t(n+0.25) <= t <= t(n+0.75)
+    %   Step 3: 0.25*dTp/dt = (0.5*RHS1) + (0.5*dRHS1dT)*(Tp-temp_old)
+    %           t(n+0.75) <= t <= t(n+1)
+    %    
+    
+    %   RHS1 = RHS1_old + dRHS1dT_old*(Tp-temp_old)
+    %
+    % Operator splitting method (Strang's method)
+    %   Step 1: 0.25*dTp/dt = (0.5*RHS1) + (0.5*dRHS1dT)*(Tp-temp_old)
+    %           t(n) <= t <= t(n+0.25)
+    %   Step 2: 0.5*dTp/dt = (1.0*RHS2)
+    %           t(n+0.25) <= t <= t(n+0.75)
+    %   Step 3: 0.25*dTp/dt = (0.5*RHS1) + (0.5*dRHS1dT)*(Tp-temp_old)
+    %           t(n+0.75) <= t <= t(n+1)
+    %
+
+    % Step 1: calculate temp1 as the temperature at sub-step t(n+0.25)
+    temp0   = temp_old;
+    [temp1] = energy_conservation_reactionstep(dt,temp0, ...
+                                 temp_old,x_m_old,x_vs_old,x_c_old,nx_old);
+    temp1   = temp1';    
+    
+    % Step 2: calculate temp2 as the temperature at sub-step t(n+0.75)
+    temp0        = temp1;
+    [a, b, c, d] = energy_conservation_diffusionstep(dt,q_surf_old, ...
+                 temp_surf_old,temp0,x_m_old,x_vs_old,x_c_old, h_conv, ...
+                 xRight,xCenter,dV,nx_old,geometry,A_rectangle,L_cylinder);                                                         
+    temp2        = tri(a,b,c,d);
+    temp2        = temp2';    
+    
+    % Step 3: calculate temp3 as the temperature at sub-step t(n+1)
+    temp0   = temp2;
+    [temp3] = energy_conservation_reactionstep(dt,temp0, ...
+                                 temp_old,x_m_old,x_vs_old,x_c_old,nx_old);
+    temp    = temp3';
+    
+    DeltaTemp_max = max( abs(temp-temp_old) );
+    if(mod(n,i_output)==0)
+        fprintf(' max(|temp-temp_old|), dt = %g %g \n',DeltaTemp_max,dt);
+    end    
+    
     % - Calculate species volume fractions and cell volumes
     [x_m, x_vs, x_c, dV] = ...
      mass_conservation(dt,temp_old,x_m_old,x_vs_old,x_c_old,dV_old,nx_old);
     
-    % - Calculate temperature
-    a = zeros(nx_old,1);
-    b = zeros(nx_old,1);
-    c = zeros(nx_old,1);
-    d = zeros(nx_old,1);
-    
-    [a, b, c, d] = energy_conservation(dt,q_surf_old, ...
-                   temp_old,x_m_old,x_vs_old,x_c_old,...
-                   xRight,xCenter,dV,nx_old,geometry,A_rectangle,L_cylinder);
-       
-
-                                                         
-    temp = tri(a,b,c,d);
- 
     % Update computational grid (in case of volume change)
     [xRight, xCenter, dx] = moveMesh(nx_old,dV,geometry,A_rectangle,L_cylinder);
     
@@ -197,37 +269,13 @@ while ((n ~= n_f) & (flag_burnout ~= 2))
         fprintf(' delta, sample_thickness(radius) = %g %g \n', ...
                                           xRight(nx_old),sample_thickness);
     end
-    
-    % Remeshing, step 1: update nx, dx
-    dx_old = dx;
-    [nx_new, dx_new] = remeshing(nx_old,xRight(nx_old));
-    if(mod(n,i_output)==0)
-        fprintf(' dx = %g, nx = %g \n',dx_new(1),nx_new);
-    end
-    
-    % Remeshing, step 2: update computational grid
-    xCenter_old = xCenter;
-    [xRight, xCenter, xLeft1, dV] = mesh(nx_new,dx_new,geometry,A_rectangle,L_cylinder);
-    dx = dx_new;
 
-    % Check
-    if(mod(n,i_output)==0)
-        sample_thickness = 0;
-        for i=1:nx_new
-            sample_thickness = sample_thickness + dx_new(i);
-        end
-        fprintf(' delta_new, sample_thickness = %g %g \n', ...
-                                          xRight(nx_new),sample_thickness);
-    end
     
-    % Remeshing, step 3: interpolate solution on new computational grid
-    temp_old  = temp;
-    x_m_old   = x_m;
-    x_vs_old  = x_vs;
-    x_c_old   = x_c;
+%Start remeshing    
+
+% to add remeshing steps here
     
-    [temp, x_m, x_vs, x_c] = interpolateOnNewMesh(nx_new,xCenter, ...
-                     nx_old,xCenter_old,temp_old,x_m_old,x_vs_old,x_c_old);
+%End remeshing
     
      for i=1:nx_new
          rho_p(i) = rho_m*x_m(i) + rho_vs*x_vs(i) + rho_c*x_c(i);
@@ -368,6 +416,7 @@ elseif geometry=="sphere"
 Mm_i  = FMC*rho_vs*4/3*pi*delta_i^3/(1+(FMC*rho_vs/rho_m)); % Mass of m
 Mvs_i =     rho_vs*4/3*pi*delta_i^3/(1+(FMC*rho_vs/rho_m)); % Mass of vs
 end
+
 % Total mass of water vapor and volatiles released (t = inf) [kg]
 if(eta_c == 0)      % Non-charring material
     Mg_f = Mm_i + Mvs_i;
