@@ -10,9 +10,10 @@ sigma = 5.67e-8;   % Stefan-Boltzmann constant [W/m2/K4]
 
 iter  = 0;
 small = 1;
+maxIter = 100;
 
 T_old = temp_surf_old;   % Initial guess for particle surface temperature
-while (small > 1e-3)
+while (small > 1e-3 && iter <= maxIter)
     iter  = iter+1;
     h_rad = eps_surf*sigma*(T_old^3);
     Bi    = (h_conv+h_rad)*dx_surf/kp_surf;
@@ -22,8 +23,9 @@ while (small > 1e-3)
     T_old = T_new;
     %fprintf(' *** iter,small = %g %g \n',iter,small);
 end
-if(iter >= 10)
-    fprintf(' *** Error in particle_surface, iter = %g \n',iter);
+if(iter >= maxIter)
+    fprintf(' *** Error in particle_surface, iterations exceed the maximum limit, temp_surf = %g \n',T_new);
+    return
 end
 
 temp_surf = T_new;
