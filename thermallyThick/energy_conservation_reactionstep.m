@@ -1,7 +1,5 @@
 % Energy conservation
-% - Semi-implicit time integration
-%   (implicit treatment of diffusion, explicit treatment of chemisty)
-% - Formulation as a tri-diagonal matrix system
+% - Sub-step associated with energy release due to pyrolysis/char oxidation
 
 function [temp] = energy_conservation_reactionstep(dt,temp0, ...
                                   temp_old,x_m_old,x_vs_old,x_c_old,nx_old)

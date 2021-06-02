@@ -34,7 +34,7 @@ fprintf(' \n');
 pause;
 
 % Parameter that contols the frequency at which output quantities are saved
-i_output = 100;
+i_output = 1;
 
 % Set Initial conditions (t = 0)
 n         = 0;
@@ -94,7 +94,7 @@ rho_p_i = rho_m*x_m_i + rho_vs*x_vs_i;   % Solid mass density (t = 0)
 
 dx    = dx_i   *ones(nx_i,1); % Array containing grid cell sizes
 dt    = dt_i;                 % Time increment
-temp  = T_g    *ones(nx_i,1); % Array containing solid temperatures
+temp  = temp_surf_i*ones(nx_i,1); % Array containing solid temperatures
 rho_p = rho_p_i*ones(nx_i,1); % Array containing solid mass densities
 x_m   = x_m_i  *ones(nx_i,1); % Array containing vol. frac. of moisture
 x_vs  = x_vs_i *ones(nx_i,1); % Array containing vol. frac. of virgin solid
@@ -143,7 +143,7 @@ end
 
 
 %% Time loop
-while ((n ~= n_f) && (flag_burnout ~= 2))
+while ((n ~= n_f) && (flag_burnout ~= 2) && (time<T_end))
     
     n      = n + 1;
     

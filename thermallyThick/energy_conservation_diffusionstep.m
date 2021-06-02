@@ -1,6 +1,8 @@
 % Energy conservation
-% - Semi-implicit time integration
-%   (implicit treatment of diffusion, explicit treatment of chemisty)
+% - Sub-step associated with heat conduction plus gas-to-solid heat
+%   transfer at the exposed surface
+% - Implicit time integration (Crank-Nicolson)
+%   (implicit treatment of both diffusion and of gas-to-solid heat transfer)
 % - Formulation as a tri-diagonal matrix system
 
 function [a, b, c, d] = energy_conservation_diffusionstep(dt,q_surf_old, ...
@@ -80,8 +82,8 @@ b(nx_old) = b(nx_old) + ((h_conv+h_rad)/(1+Bi)) ...
 d(nx_old) = d(nx_old) + (q_surf_old+((eps_surf*G+h_conv*T_g)/(1+Bi))) ...
                         *0.5*dt/rho_times_cp(i)*S_pos(nx_old)/dV(nx_old);
 
-d(nx_old) = d(nx_old) ...
-            + dt/rho_times_cp(i)*S_pos(nx_old)/dV(nx_old)*q_surf_old;
+%d(nx_old) = d(nx_old) ...
+%            + dt/rho_times_cp(i)*S_pos(nx_old)/dV(nx_old)*q_surf_old;
 
 
 % 2 <= i <= (nx_old-1) (interior nodes)
