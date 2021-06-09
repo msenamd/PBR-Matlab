@@ -3,7 +3,6 @@
 clc;
 clear;
 close all;
-delete *.csv;
 
 global A_R1 Ta_R1 A_R2 Ta_R2 eta_c A_R3 Ta_R3 rho_m rho_vs rho_c ...
        k_m k_vs k_c c_m c_vs c_c DeltaH_R1 DeltaH_R2 DeltaH_R3 x_O2_g ...
@@ -33,8 +32,8 @@ fprintf(' n_f = %g \n',n_f);
 fprintf(' \n');
 pause;
 
-% Parameter that contols the frequency at which output quantities are saved
-i_output = 1;
+% Parameter that controls the frequency at which output quantities are saved
+i_output = 50;
 
 % Set Initial conditions (t = 0)
 n         = 0;
@@ -122,6 +121,7 @@ RR3_save   =       zeros(nx_i,round(n_f/i_output)); % Reaction rate R3
 
 % Set the computational grid
 [xRight, xCenter, xLeft1, dV] = mesh(nx_i,dx,geometry,A_rectangle,L_cylinder);
+volume_i = sum(dV);
 
 % Save output quantities at initial time
 n_output            = n_output+1;
@@ -256,7 +256,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time<T_end))
     % - Calculate species volume fractions and cell volumes
     [x_m, x_vs, x_c, dV] = ...
      mass_conservation(dt,temp_old,x_m_old,x_vs_old,x_c_old,dV_old,nx_old);
-    
+    volume = sum(dV);
+ 
     % Update computational grid (in case of volume change)
     [xRight, xCenter, dx] = moveMesh(nx_old,dV,geometry,A_rectangle,L_cylinder);
     
@@ -272,9 +273,45 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time<T_end))
 
     
 %Start remeshing    
-
-% to add remeshing steps here
+    % Remeshing, step 1: update nx, dx
+    dx_old = dx;
+    dV_old = dV;
+    [nx_new, dx_new] = remeshing(nx_old,xRight(nx_old));
+    if(mod(n,i_output)==0)
+        fprintf(' dx = %g, nx = %g \n',dx_new(1),nx_new);
+    end
     
+    % Remeshing, step 2: update computational grid
+    xCenter_old = xCenter;
+%    [xRight, xCenter, xLeft1] = mesh(nx_new,dx_new);
+    [xRight, xCenter, xLeft1, dV] = mesh(nx_new,dx_new,geometry,A_rectangle,L_cylinder);
+    dx = dx_new;
+    volume = sum(dV);
+    
+    % Check
+    if(mod(n,i_output)==0)
+        sample_thickness = 0;
+        for i=1:nx_new
+            sample_thickness = sample_thickness + dx_new(i);
+        end
+        fprintf(' delta_new, sample_thickness = %g %g \n', ...
+                                          xRight(nx_new),sample_thickness);
+    end
+    
+    % Remeshing, step 3: interpolate solution on new computational grid
+    temp_old = temp;
+    x_m_old  = x_m;
+    x_vs_old = x_vs;
+    x_c_old  = x_c;
+        
+    [temp, x_m, x_vs, x_c] = interpolateOnNewMesh(nx_new,xCenter, ...
+     volume,dV,nx_old,xCenter_old,dV_old,temp_old,x_m_old,x_vs_old,x_c_old);
+    temp = temp';
+    x_m  = x_m';
+    x_vs = x_vs';
+    x_c  = x_c';
+    %fprintf(' size(temp) = %g %g \n',size(temp));
+    %return;
 %End remeshing
     
      for i=1:nx_new
@@ -335,12 +372,17 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time<T_end))
          for i=1:nx_new
              MLRtot_new = MLRtot_new + MLRpuv(i)*dV(i);
          end
+         if geometry=="rectangle"
+             MLRtot_new = MLRtot_new * 2 ; %because we solve half rectangles
+         end
          
          MLR_save(n_output)       = MLRtot_new;
          q_surf_save(n_output)    = q_surf;
          temp_surf_save(n_output) = temp_surf;
          temp_back_save(n_output) = temp(1);
          delta_save(n_output)     = xRight(nx_new);        
+         dt_save(n_output)        = dt;
+        
          nx_save(n_output)            = nx_new;
          XC_save(1:nx_new,n_output)   = xCenter(1:nx_new);
          TEMP_save(1:nx_new,n_output) = temp(1:nx_new);
@@ -360,8 +402,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time<T_end))
      end
      
      % Check for burnout time (Safety: do not allow shrinking to zero-size)
-     if( ( flag_burnout == 0 ) & ...
-         ( eta_c ~= 0 ) & ( x_vs(1) < 0.001 ) )
+     if( ( flag_burnout == 0 ) && ...
+         ( eta_c ~= 0 ) && ( x_vs(1) < 0.001 ) )
          flag_burnout  = 1;
          n_last_output = n_output+1; % Simulate until time for last output
          fprintf(' \n');
@@ -369,8 +411,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time<T_end))
          fprintf(' Thickness at burnout time = %g \n',xRight(nx_new));
          fprintf(' Thickness at burnout time = %g \n',delta_f);
      end
-     if( ( flag_burnout == 0 ) & ...
-         ( eta_c == 0 ) & ( (xRight(nx_new)/delta_i) < 0.01 ) )
+     if( ( flag_burnout == 0 ) && ...
+        ( eta_c == 0 ) && ( (xRight(nx_new)/delta_i) < 0.02 ) )
          flag_burnout  = 1;
          n_last_output = n_output;   % Stop simulation
          fprintf(' \n');
@@ -407,8 +449,8 @@ fprintf(' Final thickness of the particle (simulation) = %g \n', ...
 
 % Initial mass of moisture and virgin solid (t = 0) [kg]
 if geometry=="rectangle"
-Mm_i  = FMC*rho_vs*delta_i*A_rectangle/(1+(FMC*rho_vs/rho_m)); % Mass of m
-Mvs_i =     rho_vs*delta_i*A_rectangle/(1+(FMC*rho_vs/rho_m)); % Mass of vs
+Mm_i  = FMC*rho_vs*2*delta_i*A_rectangle/(1+(FMC*rho_vs/rho_m)); % Mass of m
+Mvs_i =     rho_vs*2*delta_i*A_rectangle/(1+(FMC*rho_vs/rho_m)); % Mass of vs
 elseif geometry=="cylinder"
 Mm_i  = FMC*rho_vs*pi*delta_i^2*L_cylinder/(1+(FMC*rho_vs/rho_m)); % Mass of m
 Mvs_i =     rho_vs*pi*delta_i^2*L_cylinder/(1+(FMC*rho_vs/rho_m)); % Mass of vs
@@ -437,5 +479,81 @@ fprintf(' Total mass of vapor/volatiles released (theory)     = %g \n', ...
                                                                   Mg_f);
 fprintf(' Total mass of vapor/volatiles released (simulation) = %g \n', ...
                                                                int_MLR);
+% Plot results
+% - Time variations of key quantities
+
+figure(1);   % Mass loss rate [kg/s/m2]
+hold on;
+plot(time_save(1:n_output),(MLR_save(1:n_output)));
+
+
+figure(2);   % Net surface heat flux [kW/m2]
+hold on;
+plot(time_save(1:n_output),(q_surf_save(1:n_output)/1000));
+
+figure(3);   % Temperature at exposed surface and at center of particle [K]
+hold on;
+plot(time_save(1:n_output),temp_surf_save(1:n_output));
+hold on;
+plot(time_save(1:n_output),temp_back_save(1:n_output));
+
+figure(4);   % Half-thickness of particle
+hold on;
+plot(time_save(1:n_output),delta_save(1:n_output));
+
+figure(5);   % Time increment [s]
+hold on;
+plot(time_save(1:n_output),dt_save(1:n_output));
+
+% - Spatial profiles
+
+figure(11);   % Temperature
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),TEMP_save(1:nx_save(n),n));
+    hold on
+end
+
+figure(12);   % Mass density
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),RHOP_save(1:nx_save(n),n));
+    hold on
+end
+
+figure(13);   % Volume fraction of moisture
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),XM_save(1:nx_save(n),n));
+    hold on
+end
+
+figure(14);   % Volume fraction of virgin solid
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),XVS_save(1:nx_save(n),n));
+    hold on
+end
+
+figure(15);   % Volume fraction of char
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n), ...
+                     (1-XM_save(1:nx_save(n),n)-XVS_save(1:nx_save(n),n)));
+    hold on
+end
+
+figure(16);   % Mass reaction rate for moisture evaporation reaction R1
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),RR1_save(1:nx_save(n),n));
+    hold on
+end
+
+figure(17);   % Mass reaction rate for pyrolysis reaction R2
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),RR2_save(1:nx_save(n),n));
+    hold on
+end
+
+figure(18);   % Mass reaction rate for char oxidation reaction R3
+for n=1:n_output
+    plot(XC_save(1:nx_save(n),n),RR3_save(1:nx_save(n),n));
+    hold on
+end
 
 return; 
