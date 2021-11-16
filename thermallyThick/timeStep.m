@@ -1,63 +1,117 @@
-function dt=timeStep(FMC, A_R1, Ta_R1, A_R2, Ta_R2, rho_m, rho_vs, rho_c, ...
-       k_m, k_vs, k_c, c_m, c_vs, c_c, dx_i )
-
-
+function dt = timeStep(rho_ws, rho_ds, rho_c, rho_a, ...
+                       k_ws, k_ds, k_c, k_a, ...
+                       c_ws, c_ds, c_c, c_a, ...
+                       psi_ws, psi_ds, psi_c, psi_a, ...
+                       Kperm_ws, Kperm_ds, Kperm_c, Kperm_a, ...
+                       A_R1, Ta_R1, ...
+                       A_R2, Ta_R2, ...
+                       A_R3, Ta_R3, n_O2_R3, ...
+                       A_R4, Ta_R4, n_O2_R4, ...
+                       Y_g_O2, nu_g0, MW_g, R, dx_i)
          
 
-% Select numerical parameters: time resolution such that FO ~ 0.5
-% Calculate maximum value of heat diffusivity
-alpha_max = 0;
-for i=1:101
-    x_vs_tmp = (i-1)/100;   % Cover range 0 <= x_vs_tmp <= 1
-    for j=1:21
-        FMC_tmp = (j-1)*FMC/20;   % Cover range 0 <= FMC_tmp <= FMC
-        x_m_tmp = (rho_vs/rho_m)*FMC_tmp*x_vs_tmp;
-        x_c_tmp = 1-x_vs_tmp-x_m_tmp;
-    
-        rhoc_p_tmp = rho_m*c_m*x_m_tmp + rho_vs*c_vs*x_vs_tmp ...
-                                       + rho_c*c_c*x_c_tmp;
-        k_p_tmp    = k_m*x_m_tmp + k_vs*x_vs_tmp +k_c*x_c_tmp;
-    
-        alpha_max = max(alpha_max,(k_p_tmp/rhoc_p_tmp));
-    end
-end
-dt = 0.5*dx_i^2/alpha_max;   % Select time step (constant)
-FO = alpha_max*dt/dx_i^2;
-fprintf(' dt = %g \n',dt);
-fprintf(' FO = %g \n',FO);
+% Estimate dt based on heat diffusion inside solid phase
+%  - Enforce FO = (k_s/rho_s c_s)*dt/dx^2 ~ 0.5
+alpha_max = max( [(k_ws/rho_ws/c_ws),(k_ds/rho_ds/c_ds), ...
+                  (k_c/rho_c/c_c),(k_a/rho_a/c_a)] );
+dt        = 0.5*dx_i^2/alpha_max;
+dt_SPDiff = dt;
+FO        = alpha_max*dt/dx_i^2;
+fprintf(' dt                  = %g \n',dt);
+fprintf(' FO (solid species)  = %g \n',FO);
 
-%
-% Begin analysis of chemical time scales
+% Estimate dt based on oxygen diffusion inside gas phase
+%  - Enforce FO = D_g*dt/dx^2 ~ 0.5
+D_g_max = 0;
+for i = 1:101
+    tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
+    D_g     = nu_g0*(tem_tmp/300)^(1.76);
+    D_g_max = max(D_g_max, D_g);
+end
+%dt = 0.5*dx_i^2/D_g_max;
+FO = D_g_max*dt/dx_i^2;
+fprintf(' \n');
+fprintf(' dt                  = %g \n',dt);
+fprintf(' FO (gaseous oxygen) = %g \n',FO);
+
+% Estimate dt based on pressure diffusion inside gas phase
+%  - Enforce FO = D_p*dt/dx^2 ~ 0.5
+D_p_max = 0;
+for i = 1:101
+    tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
+    nu_g    = nu_g0*(tem_tmp/300)^(1.76);
+    D_p     = max( [(Kperm_ws/nu_g)/(MW_g*psi_ws/R/tem_tmp), ...
+                    (Kperm_ds/nu_g)/(MW_g*psi_ds/R/tem_tmp), ...
+                    (Kperm_c /nu_g)/(MW_g*psi_c /R/tem_tmp), ...
+                    (Kperm_a /nu_g)/(MW_g*psi_a /R/tem_tmp)] );
+    D_p_max = max(D_p_max, D_p);
+end
+%dt = 0.5*dx_i^2/D_p_max;
+FO = D_p_max*dt/dx_i^2;
+fprintf(' \n');
+fprintf(' dt                  = %g \n',dt);
+fprintf(' FO (gas pressure)   = %g \n',FO);
+
+% Estimate dt based on heterogeneous chemistry
 tau_RR1_min = 1000;
-for i=1:21
-    tem_tmp = 300 + (i-1)*200/20; % Cover range 300 <= temp_tmp <= 500 K
-    if(A_R1 ~= 0)
+if(A_R1 ~= 0)
+    for i = 1:21
+        tem_tmp = 300 + (i-1)*200/20; % Cover range 300 <= temp <= 500 K
         tau_RR1 = 1/(A_R1*exp(-Ta_R1/tem_tmp));
         tau_RR1_min = min(tau_RR1_min,tau_RR1);
     end
 end
 fprintf(' \n');
-fprintf(' tau_RR1_min, (tau_RR1_min/dt) = %g %g \n', ...
+fprintf(' tau_RR1_min,(tau_RR1_min/dt) = %g %g \n', ...
           tau_RR1_min,(tau_RR1_min/dt));
+
 tau_RR2_min = 1000;
-for i=1:101
-    tem_tmp = 300 + (i-1)*1200/100; % Cover range 300 <= temp_tmp <= 1500 K
-    if(A_R2 ~= 0)
+if(A_R2 ~= 0)
+    for i = 1:101
+        tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
         tau_RR2 = 1/(A_R2*exp(-Ta_R2/tem_tmp));
         tau_RR2_min = min(tau_RR2_min,tau_RR2);
     end
 end
-fprintf(' tau_RR2_min, (tau_RR2_min/dt) = %g %g \n', ...
+fprintf(' tau_RR2_min,(tau_RR2_min/dt) = %g %g \n', ...
           tau_RR2_min,(tau_RR2_min/dt));
-% Enforce (tau_RR1_min/dt) and (tau_RR2_min/dt) >=10
-scale = min((tau_RR1_min/dt),(tau_RR2_min/dt));
+
+tau_RR3_min = 1000;
+if( (Y_g_O2 ~= 0) & (A_R3 ~= 0) )    
+    for i = 1:101
+        tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
+        tau_RR3 = 1/((Y_g_O2^n_O2_R3)*A_R3*exp(-Ta_R3/tem_tmp));
+        tau_RR3_min = min(tau_RR3_min,tau_RR3);
+    end
+end
+fprintf(' tau_RR3_min,(tau_RR3_min/dt) = %g %g \n', ...
+          tau_RR3_min,(tau_RR3_min/dt));      
+
+tau_RR4_min = 1000;
+if( (Y_g_O2 ~= 0) & (A_R4 ~= 0) )
+    for i = 1:101
+        tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
+        tau_RR4 = 1/((Y_g_O2^n_O2_R4)*A_R4*exp(-Ta_R4/tem_tmp));
+        tau_RR4_min = min(tau_RR4_min,tau_RR4);
+    end
+end
+fprintf(' tau_RR4_min,(tau_RR4_min/dt) = %g %g \n', ...
+          tau_RR4_min,(tau_RR4_min/dt));
+      
+% Enforce (tau_RRj_min/dt) >=10
+scale = min( [(tau_RR1_min/dt),(tau_RR2_min/dt), ...
+              (tau_RR3_min/dt),(tau_RR4_min/dt)] );
 if( scale < 10 )
     dt = dt*0.1*scale;   % Modified time step
     FO = alpha_max*dt/dx_i^2;
-    fprintf(' dt = %g \n',dt);
-    fprintf(' FO = %g \n',FO);
+    fprintf(' dt_RR = %g \n',dt);
+    fprintf(' FO    = %g \n',FO);
 end
-% End analysis of chemical time scales
-%
+
+% Choose initial value of dt
+dt = dt_SPDiff;
+fprintf(' dt                  = %g \n',dt);
+fprintf('\n');
+    
 
 end

@@ -13,9 +13,9 @@ function [ T_end, geometry, delta_i, A_rectangle, L_cylinder, ...
            A_R3, Ta_R3, n_R3, n_O2_R3, DeltaH_R3, eta_c_R3, eta_O2_R3, ...
            A_R4, Ta_R4, n_R4, n_O2_R4, DeltaH_R4, eta_a_R4, eta_O2_R4 ] ...
            = input_parameters
-       
+     
 % Duration of the simulation [s]
-T_end = 2000;
+T_end = 600;
 
 % Particle shape (available shapes: rectangle - cylinder - sphere)
 geometry = "rectangle";  
@@ -32,15 +32,12 @@ L_cylinder  = 1e-0;
 % Conditions in the ambient external gas
 T_g    = 300;     % Temperature [K]
 u_g    = 0.0;     % Flow velocity [m/s]
-%%AT G      = 40e+3;   % Averaged irradiation [W/m2]
-u_g = 0;
-G   = 20e+3;
-%%AT
+G      = 50e+3;   % Averaged irradiation [W/m2]
 Y_g_O2 = 0.233;   % Oxygen mass fraction [-]
 pres_g = 101325;  % Absolute pressure [Pa]
 
 k_g0   = 0.026;   % Thermal conductivity in air at normal temp. [W/m/K]
-cp_g0  = 1100;    % Heat capacity (at constant pressure) in air
+cp_g0  = 1000;    % Heat capacity (at constant pressure) in air
                   % at normal temperature [J/kg/K]
 nu_g0  = 1.6d-5;  % Kinematic viscosity in air at normal temp./pres. [m2/s]
 Pr     = 0.7;     % Prandtl number [-]
@@ -56,34 +53,34 @@ Y_O2_i = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
 pres_i = 0;       % Initial gauge pressure [Pa] (gas phase)
 
 %  - Source: Novozhilov et al. (1996) Fire Safety J. 27:69-84
-rho_ws = 390;     % Mass density of wet solid [kg/m3]
+rho_ws = 729.3;   % Mass density of wet solid [kg/m3]
                   % NB: at constant volume and porosity in reaction (R1),
                   %     rho_ws = rho_ds*(1+FMC) or FMC = (rho_ws/rho_ds)-1
-rho_ds = 390;     % Mass density of dry solid [kg/m3]
-rho_c  = 390;     % Mass density of char [kg/m3]
+rho_ds = 663;     % Mass density of dry solid [kg/m3]
+rho_c  = 132.6;   % Mass density of char [kg/m3]
                   % NB: at constant volume and porosity in reaction (R2),
                   %     eta_c_R2 = (rho_c/rho_ds)
-rho_a  = 390;     % Mass density of ash [kg/m3]
+rho_a  = 132.6;   % Mass density of ash [kg/m3]
 
-k_ws   = 0.186;   % Conductivity of wet solid [W/m/K]
-k_ds   = 0.176;   % Conductivity of dry solid [W/m/K]
-k_c    = 0.065;   % Conductivity of char [W/m/K]
-k_a    = 0.058;   % Conductivity of ash [W/m/K]
+k_ws   = 0.126;   % Conductivity of wet solid [W/m/K]
+k_ds   = 0.126;   % Conductivity of dry solid [W/m/K]
+k_c    = 0.126;   % Conductivity of char [W/m/K]
+k_a    = 0.126;   % Conductivity of ash [W/m/K]
 
-c_ws   = 1764;    % Heat capacity of wet solid [J/kg/K]
-c_ds   = 1664;    % Heat capacity of dry solid [J/kg/K]
-c_c    = 1219;    % Heat capacity of char [J/kg/K]
-c_a    = 1244;    % Heat capacity of ash [J/kg/K]
+c_ws   = 2.52e+3; % Heat capacity of wet solid [J/kg/K]
+c_ds   = 2.52e+3; % Heat capacity of dry solid [J/kg/K]
+c_c    = 2.52e+3; % Heat capacity of char [J/kg/K]
+c_a    = 2.52e+3; % Heat capacity of ash [J/kg/K]
 
-eps_ws = 0.757;   % Surface emissivity of wet solid [-]
-eps_ds = 0.759;   % Surface emissivity of dry solid [-]
-eps_c  = 0.957;   % Surface emissivity of char [-]
-eps_a  = 0.955;   % Surface emissivity of ash [-]
+eps_ws = 0.9;     % Surface emissivity of wet solid [-]
+eps_ds = 0.9;     % Surface emissivity of dry solid [-]
+eps_c  = 0.9;     % Surface emissivity of char [-]
+eps_a  = 0.9;     % Surface emissivity of ash [-]
 
-psi_ws = 1-(380/390); % Porosity of the particle when pure wet solid [-]
-psi_ds = 1-(361/390); % Porosity of the particle when pure solid [-]
-psi_c  = 1- (73/390); % Porosity of the particle when pure char [-]
-psi_a  = 1-(5.7/390); % Porosity of the particle when pure ash [-]
+psi_ws = 0.010;   % Porosity of the particle when pure wet solid [-]
+psi_ds = 0.010;   % Porosity of the particle when pure solid [-]
+psi_c  = 0.010;   % Porosity of the particle when pure char [-]
+psi_a  = 0.010;   % Porosity of the particle when pure ash [-]
 
 Kperm_ws = 1e-10;   % Permeability of the particle when pure wet solid [m2]
 Kperm_ds = 1e-10;   % Permeability of the particle when pure solid [m2]
@@ -96,72 +93,50 @@ sigma = 5.67e-8;   % Stefan-Boltzmann constant [W/m2/K4]
 
 % Moisture evaporation model (reaction R1)
 %  - Source: Shen et al. (2007) Fire Safety J. 42:210-217
-A_R1      = 4.29e+3;    % Pre-exponential factor [1/s]
-E_R1      = 43.8e+3;    % Activation energy [J/mol]
+A_R1      = 5.13e+10;   % Pre-exponential factor [1/s]
+E_R1      = 88e+3;      % Activation energy [J/mol]
 Ta_R1     = E_R1/R;     % Activation temperature [K]
-n_R1      = 1.0;        % Solid-phase reactant exponent [-]
-DeltaH_R1 =-2410e+3;    % Heat of evaporation [J/kg] (< 0, endothermic)
-eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
+n_R1      = 1;          % Solid-phase reactant exponent [-]
+DeltaH_R1 =-2440e+3;    % Heat of evaporation [J/kg] (< 0, endothermic)
+eta_ds_R1 = 0.90909091; % Mass yield of dry solid in reaction (R1) [-]
                         % NB: at constant volume/porosity in reaction (R1),
                         %     eta_ds_R1 = 1/(1+FMC) = (rho_ds/rho_ws)
 
 % Thermal pyrolysis model (reaction R2)
 %  - Source: Novozhilov et al. (1996) Fire Safety J. 27:69-84
-A_R2      = 3.29e+9;    % Pre-exponential factor [1/s]
-E_R2      = 135e+3;     % Activation energy [J/mol]
+A_R2      = 5.25e+7;    % Pre-exponential factor [1/s]
+E_R2      = 1.256e+5;   % Activation energy [J/mol]
 Ta_R2     = E_R2/R;     % Activation temperature [K]
-n_R2      = 4.78;       % Solid-phase reactant exponent [-]
-DeltaH_R2 =-533e+3;     % Heat of pyrolysis [J/kg] (< 0, endothermic)
-eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
+n_R2      = 1;          % Solid-phase reactant exponent [-]
+DeltaH_R2 =-0;          % Heat of pyrolysis [J/kg] (< 0, endothermic)
+eta_c_R2  = 0.0;        % Mass yield of char in reaction (R2) [-]
                         % NB: at constant volume and porosity in (R2),
                         %     eta_c_R2 = (rho_c/rho_ds)
 
 % Oxidative pyrolysis model (reaction R3)
 %  - Source: Lautenberger & Fernandez-Pello (2009) Combust. Flame
 %            156:1503-1513
-A_R3      = 6.00e+9;    % Pre-exponential factor [1/s]
-E_R3      = 124.2e+3;   % Activation energy [J/mol]
+
+A_R3      = 0;          % Pre-exponential factor [1/s]
+E_R3      = 0;          % Activation energy [J/mol]
 Ta_R3     = E_R3/R;     % Activation temperature [K]
-n_R3      = 4.99;       % Solid-phase reactant exponent [-]
-n_O2_R3   = 1.16;       % Gas-phase oxygen exponent [-]
-DeltaH_R3 =+994e+3;     % Heat of pyrolysis [J/kg] (> 0, exothermic)
-eta_c_R3  = (73/361);   % Mass yield of char in reaction (R3) [-]
-eta_O2_R3 = 0.1*(1-eta_c_R3); % Oxygen-to-dry-solid mass ratio in (R3) [-]
+n_R3      = 1;          % Solid-phase reactant exponent [-]
+n_O2_R3   = 1;          % Gas-phase oxygen exponent [-]
+DeltaH_R3 =+0;          % Heat of pyrolysis [J/kg] (< 0, endothermic)
+eta_c_R3  = 0;          % Mass yield of char in reaction (R3) [-]
+eta_O2_R3 = 0;          % Oxygen-to-dry-solid mass ratio in react. (R3) [-]
 
 % Char oxidation model (reaction R4)
 %  - Source: Lautenberger & Fernandez-Pello (2009) Combust. Flame
 %            156:1503-1513
-A_R4      = 9.79e+13;   % Pre-exponential factor [1/s]
-E_R4      = 192.4e+3;   % Activation energy [J/mol]
+A_R4      = 0;          % Pre-exponential factor [1/s]
+E_R4      = 0;          % Activation energy [J/mol]
 Ta_R4     = E_R4/R;     % Activation temperature [K]
-n_R4      = 1.86;       % Solid-phase reactant exponent [-]
-n_O2_R4   = 1.04;       % Gas-phase oxygen exponent [-]
-DeltaH_R4 =+37700e+3;   % Heat of pyrolysis [J/kg] (> 0, exothermic)
-eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
-eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
-
-%%AT
-T_end = 600;
-%%AT
-
-%%AT Uncomment the lines below for tests with fixed volume dV
-%%{
-rho_ws    = 380;
-rho_ds    = 361;
-rho_c     = 73;
-rho_a     = 5.7;
-psi_ws    = 0.01;
-psi_ds    = 0.01;
-psi_c     = 0.01;
-psi_a     = 0.01;
-eta_ds_R1 = (rho_ds/rho_ws);
-eta_c_R2  = (rho_c/rho_ds);
-eta_c_R3  = (rho_c/rho_ds);
-eta_O2_R3 = 0.1*(1-eta_c_R3);
-eta_a_R4  = (rho_a/rho_c);
-eta_O2_R4 = 2.0*(1-eta_a_R4);
-%}
-%%AT
+n_R4      = 1;          % Solid-phase reactant exponent [-]
+n_O2_R4   = 1;          % Gas-phase oxygen exponent [-]
+DeltaH_R4 =+0;          % Heat of pyrolysis [J/kg] (< 0, endothermic)
+eta_a_R4  = 0;          % Mass yield of ash in reaction (R4) [-]
+eta_O2_R4 = 0;          % Oxygen-to-char mass ratio in reaction (R4) [-]
 
 
 end 

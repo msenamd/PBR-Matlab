@@ -15,7 +15,7 @@ function [ T_end, geometry, delta_i, A_rectangle, L_cylinder, ...
            = input_parameters
        
 % Duration of the simulation [s]
-T_end = 2000;
+T_end = 10000;
 
 % Particle shape (available shapes: rectangle - cylinder - sphere)
 geometry = "rectangle";  
@@ -33,8 +33,8 @@ L_cylinder  = 1e-0;
 T_g    = 300;     % Temperature [K]
 u_g    = 0.0;     % Flow velocity [m/s]
 %%AT G      = 40e+3;   % Averaged irradiation [W/m2]
-u_g = 0;
-G   = 20e+3;
+u_g = 10.0;
+G   = 50e+3;
 %%AT
 Y_g_O2 = 0.233;   % Oxygen mass fraction [-]
 pres_g = 101325;  % Absolute pressure [Pa]
@@ -99,7 +99,7 @@ sigma = 5.67e-8;   % Stefan-Boltzmann constant [W/m2/K4]
 A_R1      = 4.29e+3;    % Pre-exponential factor [1/s]
 E_R1      = 43.8e+3;    % Activation energy [J/mol]
 Ta_R1     = E_R1/R;     % Activation temperature [K]
-n_R1      = 1.0;        % Solid-phase reactant exponent [-]
+n_R1      = 1;          % Solid-phase reactant exponent [-]
 DeltaH_R1 =-2410e+3;    % Heat of evaporation [J/kg] (< 0, endothermic)
 eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
                         % NB: at constant volume/porosity in reaction (R1),
@@ -110,7 +110,7 @@ eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
 A_R2      = 3.29e+9;    % Pre-exponential factor [1/s]
 E_R2      = 135e+3;     % Activation energy [J/mol]
 Ta_R2     = E_R2/R;     % Activation temperature [K]
-n_R2      = 4.78;       % Solid-phase reactant exponent [-]
+n_R2      = 1;          % Solid-phase reactant exponent [-]
 DeltaH_R2 =-533e+3;     % Heat of pyrolysis [J/kg] (< 0, endothermic)
 eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
                         % NB: at constant volume and porosity in (R2),
@@ -122,8 +122,8 @@ eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
 A_R3      = 6.00e+9;    % Pre-exponential factor [1/s]
 E_R3      = 124.2e+3;   % Activation energy [J/mol]
 Ta_R3     = E_R3/R;     % Activation temperature [K]
-n_R3      = 4.99;       % Solid-phase reactant exponent [-]
-n_O2_R3   = 1.16;       % Gas-phase oxygen exponent [-]
+n_R3      = 1;          % Solid-phase reactant exponent [-]
+n_O2_R3   = 1;          % Gas-phase oxygen exponent [-]
 DeltaH_R3 =+994e+3;     % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_c_R3  = (73/361);   % Mass yield of char in reaction (R3) [-]
 eta_O2_R3 = 0.1*(1-eta_c_R3); % Oxygen-to-dry-solid mass ratio in (R3) [-]
@@ -134,15 +134,11 @@ eta_O2_R3 = 0.1*(1-eta_c_R3); % Oxygen-to-dry-solid mass ratio in (R3) [-]
 A_R4      = 9.79e+13;   % Pre-exponential factor [1/s]
 E_R4      = 192.4e+3;   % Activation energy [J/mol]
 Ta_R4     = E_R4/R;     % Activation temperature [K]
-n_R4      = 1.86;       % Solid-phase reactant exponent [-]
-n_O2_R4   = 1.04;       % Gas-phase oxygen exponent [-]
+n_R4      = 1;          % Solid-phase reactant exponent [-]
+n_O2_R4   = 1;          % Gas-phase oxygen exponent [-]
 DeltaH_R4 =+37700e+3;   % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
 eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
-
-%%AT
-T_end = 600;
-%%AT
 
 %%AT Uncomment the lines below for tests with fixed volume dV
 %%{

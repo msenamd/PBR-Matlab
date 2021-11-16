@@ -1,5 +1,5 @@
 % Remeshing
-function [nx_new, dx_new] = remeshing(nx_old,delta)
+function [nx_new, dx_new] = remeshing(nx_old, delta)
 
 global dx_i
 
