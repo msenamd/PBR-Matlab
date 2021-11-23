@@ -3,7 +3,7 @@
 %
 %   (pres(n+1)-pres(n))/dt = RHS1 + RHS2 where RHS1 is pressure change
 %                            due to reactions (R1)-(R4) and RHS2 is
-%                            pressure change due to diffusion
+%                            pressure change due to convection
 %
 %   Evaluation of RHS1:
 %      RHS1 = RHS1(n)
@@ -11,9 +11,6 @@
 %      RHS2 = 0.5*RHS2(n+1) + 0.5*RHS2(n)
 %
 % - Formulation as a tri-diagonal matrix system
-%
-% - Definitions
-%      pres_old     = pres(n)
 
 function [a, b, c, d] = pressure_equation(dt, pres_old, ...
     temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
@@ -117,6 +114,14 @@ FO_L    = 0.5*(xstore1(i)+xstore1(i-1))/xstore2(i) * S_neg(i)*dt / ...
                                      (dV_old(i)*(xCenter(i)-xCenter(i-1)));
 dx_surf = xRight(nx_old)-xCenter(nx_old);
 FO_R    = xstore1(i)/xstore2(i) * S_pos(i)*dt / (dV_old(i)*dx_surf);
+%%AT
+% Apply a pressure relaxation boundary condition
+%   - FO_R/(k*dt) = alpha, where k is the relaxation coefficient [1/s]
+alpha = 0;
+FO_R  = FO_R/(1+alpha);
+%%AT
+%%AT FO_R  = FO_L;
+%%AT
 
 a(i) =-0.5*FO_L;
 b(i) = 1 + 0.5*FO_L + 0.5*FO_R;
@@ -126,6 +131,10 @@ d(i) = (0.5*FO_L)*pres_old(i-1) ...
      + (FO_R)*0 ...
      + RRp(i);
 
+%%AT
+%%AT d(i) = d(i) - RRp(i);
+%%AT
+ 
 %%AT
 % Apply under-relaxation in iterative scheme
 %%AT d(i) = d(i) + (1-lambda_pres)*b(i)*pres_olditer(i)/lambda_pres;

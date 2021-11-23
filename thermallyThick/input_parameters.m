@@ -140,9 +140,6 @@ DeltaH_R4 =+37700e+3;   % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
 eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
 
-%%AT
-T_end = 600;
-%%AT
 
 %%AT Uncomment the lines below for tests with fixed volume dV
 %%{

@@ -27,8 +27,9 @@ global geometry A_rectangle L_cylinder ...
        A_R1 Ta_R1 n_R1 eta_ds_R1 ...
        A_R2 Ta_R2 n_R2 eta_c_R2 ...
        A_R3 Ta_R3 n_R3 n_O2_R3 eta_c_R3 eta_O2_R3 ...
-       A_R4 Ta_R4 n_R4 n_O2_R4 eta_a_R4 eta_O2_R4
-   
+       A_R4 Ta_R4 n_R4 n_O2_R4 eta_a_R4 eta_O2_R4 ...
+       IFilter nFilter
+
    
 % Calculation of surface areas of cell boundary faces
 if geometry=="rectangle"    
@@ -53,7 +54,41 @@ elseif geometry=="sphere"
     S_neg(i)=4*pi*xRight(i-1)^2; 
     end   
 end
-   
+
+%%AT
+if(IFilter == 1)
+    % Filering of reaction rates for R3 and R4
+    for i = 1:nx_old
+        psi_new = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
+                + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
+        Y_O2s   = max(Y_O2_olditer(i),0);
+    
+        RR3(i)  = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
+                 *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp_olditer(i));
+        RR4(i)  = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
+                 *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp_olditer(i));
+    end
+
+    for n = 1:nFilter
+        RR3bar(1) = 0.5*RR3(1) + 0.5*RR3(2);
+        for i=2:(nx_old-1)
+            RR3bar(i) = 0.25*RR3(i-1) + 0.5*RR3(i) + 0.25*RR3(i+1);
+        end
+        RR3bar(nx_old) = 0.5*RR3(nx_old-1) + 0.5*RR3(nx_old);
+    
+        RR3 = RR3bar;
+    
+        RR4bar(1) = 0.5*RR4(1) + 0.5*RR4(2);
+        for i=2:(nx_old-1)
+            RR4bar(i) = 0.25*RR4(i-1) + 0.5*RR4(i) + 0.25*RR4(i+1);
+        end
+        RR4bar(nx_old) = 0.5*RR4(nx_old-1) + 0.5*RR4(nx_old);
+    
+        RR4 = RR4bar;
+    end
+end
+%%AT
+
 for i = 1:nx_old
     % Porosity (estimated at time t(n))
     psi          = psi_ws*x_ws_old(i) + psi_ds*x_ds_old(i) ...
@@ -79,21 +114,35 @@ for i = 1:nx_old
     % Volumetric reaction rate [kg/s/m3]
     psi_new = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
             + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
-    Y_O2s  = max(Y_O2_olditer(i),0);
-    K_R1   = ( (rho_ws*x_ws_olditer(i)*(1-psi_new))^n_R1 ) ...
-             *A_R1*exp(-Ta_R1/temp_olditer(i));
-    K_R2   = ( (rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R2 ) ...
-             *A_R2*exp(-Ta_R2/temp_olditer(i));
-    K_R3   = ( (rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
-             *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp_olditer(i));
-    K_R4   = ( (rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
-             *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp_olditer(i));
+    Y_O2s   = max(Y_O2_olditer(i),0);
+    K_R1    = ( max(0,rho_ws*x_ws_olditer(i)*(1-psi_new))^n_R1 ) ...
+              *A_R1*exp(-Ta_R1/temp_olditer(i));
+    K_R2    = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R2 ) ...
+              *A_R2*exp(-Ta_R2/temp_olditer(i));
+    %%AT
+    if(IFilter == 1)
+        K_R3 = RR3(i);
+        K_R4 = RR4(i);
+    else
+        K_R3 = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
+              *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp_olditer(i));
+        K_R4 = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
+              *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp_olditer(i));
+    end
+    %%AT
 
     % Assume n_O2_R3 >= 1 and n_O2_R4 >=1
-    K_R3b  = ( (rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
-             *( Y_O2s^(n_O2_R3-1) )*A_R3*exp(-Ta_R3/temp_olditer(i));
-    K_R4b  = ( (rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
-             *( Y_O2s^(n_O2_R4-1) )*A_R4*exp(-Ta_R4/temp_olditer(i));
+    if( abs(Y_O2s) > 0 )
+        K_R3b = K_R3/Y_O2s;
+        K_R4b = K_R4/Y_O2s;
+    else
+        K_R3b = 0;
+        K_R4b = 0;
+    end
+    %%AT K_R3b  = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
+    %%AT          *( Y_O2s^(n_O2_R3-1) )*A_R3*exp(-Ta_R3/temp_olditer(i));
+    %%AT K_R4b  = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
+    %%AT          *( Y_O2s^(n_O2_R4-1) )*A_R4*exp(-Ta_R4/temp_olditer(i));
     
     xstore = (1-eta_ds_R1)*K_R1  + (1-eta_c_R2) *K_R2 ...
            + (1-eta_c_R3) *K_R3  + (1-eta_a_R4) *K_R4 ...    

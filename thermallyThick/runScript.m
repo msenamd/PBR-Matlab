@@ -16,7 +16,7 @@ global geometry A_rectangle L_cylinder ...
        A_R2 Ta_R2 n_R2 DeltaH_R2 eta_c_R2 ...
        A_R3 Ta_R3 n_R3 n_O2_R3 DeltaH_R3 eta_c_R3 eta_O2_R3 ...
        A_R4 Ta_R4 n_R4 n_O2_R4 DeltaH_R4 eta_a_R4 eta_O2_R4 ...
-       dx_i 
+       dx_i IFilter nFilter
 
 % Read input parameters
 [ T_end, geometry, delta_i, A_rectangle, L_cylinder, ...
@@ -69,21 +69,42 @@ i_output  = 500;
 %%AT
 
 % Parameters that control the time step and solution accuracy
-%%AT Threshold_Temp = 0.01;    % Max. value of temp variation during dt [K]
-%%AT Threshold_xk   = 0.001;   % Max. value of x_k variation during dt [-]
-%%AT Threshold_YO2  = 0.01;    % Max. value of Y_O2 variation during dt [-]
-%%AT Threshold_pres = 0.1;     % Max. value of pres variation during dt [-]
+%%AT Threshold_Temp = 1.0;     % Max. value of temp variation during dt [K]
 Threshold_Temp = 0.1;     % Max. value of temp variation during dt [K]
 Threshold_xk   = 0.01;    % Max. value of x_k variation during dt [-]
 Threshold_YO2  = 0.01;    % Max. value of Y_O2 variation during dt [-]
 Threshold_pres = 0.1;     % Max. value of pres variation during dt [-]
-lambda         = 5.0;     % Under-relaxation parameter fore temp & Y_O2 [-]
-lambda_pres    = 5.0;     % Under-relaxation parameter for pressure [-]
-absTol_Temp    = Threshold_Temp/10;    % Abs tolerance in iteration loop for temp [-]
-absTol_YO2     = Threshold_YO2/10;     % Abs. tolerance in iteration loop for Y_O2 [-]
-absTol_pres    = Threshold_pres/10;    % Abs. tolerance in iteration loop for pres [Pa]
-%% AT
+lambda         = 1.0;     % Under-relaxation parameter fore temp & Y_O2 [-]
+lambda_pres    = 0.0;     % Under-relaxation parameter for pressure [-]
+%%AT
+%{
+absTol_Temp    = (0.1*Threshold_Temp/lambda); % Absolute tolerance in
+                                              % iter. loop for temp [K]
+absTol_x_k     = (0.1*Threshold_xk  /lambda); % Absolute tolerance in
+                                              % iter. loop for xk [-]
+absTol_YO2     = (0.1*Threshold_YO2 /lambda); % Absolute tolerance in 
+                                              % iter. loop for Y_O2 [-] 
+absTol_pres    = (0.1*Threshold_pres);        % Absolute tolerance in
+                                              % iter. loop for pres [Pa] 
+%}
+%%{                                              
+%%AT absTol_Temp    = (0.01*Threshold_Temp/lambda); % Absolute tolerance in
+%%AT                                               % iter. loop for temp [K]
+absTol_Temp    = (0.01*Threshold_Temp/lambda); % Absolute tolerance in
+                                               % iter. loop for temp [K]
+absTol_x_k     = (0.01*Threshold_xk  /lambda); % Absolute tolerance in
+                                               % iter. loop for xk [-]
+absTol_YO2     = (0.01*Threshold_YO2 /lambda); % Absolute tolerance in 
+                                               % iter. loop for Y_O2 [-]
+absTol_pres    = (0.01*Threshold_pres);        % Absolute tolerance in
+                                               % iter. loop for pres [Pa]
+%}
+%%AT
 dt_max         = 0.1;     % Max. value of dt [s]
+
+% Parameters that control filtering of reaction rates for R3 and R4
+IFilter = 0; % IFilter = 1 to activate filtering
+nFilter = 3; % nFilter > 1 to activate filtering
 
 % Set Initial conditions (t = 0)
 n         = 0;
@@ -324,10 +345,6 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     lambda, temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, nx_old);
     temp_newiter   = temp_newiter';
         
-    % Apply under-relaxation;
-    %%AT temp_newiter = lambda*temp_newiter + (1-lambda)*temp_olditer;
-    %%AT
-        
     % Check for convergence of iteration loop
     DeltaTemp_max = max( abs(real(temp_newiter-temp_olditer)) );
     if (mod(n,i_output)==0)
@@ -342,16 +359,41 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     
     % - Calculate solid species volume fractions and cell volumes
     [x_ws_newiter, x_ds_newiter, x_c_newiter, x_a_newiter, dV] = ...       
+    mass_conservation_v2(dt, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
+    temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
+    Y_O2_olditer, lambda, dV_old, nx_old);
+    %%AT
+    %{
+    [x_ws_newiter, x_ds_newiter, x_c_newiter, x_a_newiter, dV] = ...       
     mass_conservation(dt, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
     Y_O2_olditer, dV_old, nx_old);
+    %}
+    %%AT
     x_ws_newiter = x_ws_newiter';
     x_ds_newiter = x_ds_newiter';
     x_c_newiter  = x_c_newiter';
     x_a_newiter  = x_a_newiter';
     
-    %%AT if( ( A_R3 == 0 ) && ( A_R4 == 0 ) )   % (R1)-(R2) reaction model
-    if( 1 == 0 ) % Uncomment this line to force calc. of Y_O2 & pres
+    % Check for convergence of iteration loop
+    Deltax_ws_max = max( abs(real(x_ws_newiter-x_ws_olditer)) );
+    Deltax_ds_max = max( abs(real(x_ds_newiter-x_ds_olditer)) );
+    Deltax_c_max  = max( abs(real(x_c_newiter - x_c_olditer)) );
+    Deltax_a_max  = max( abs(real(x_a_newiter - x_a_olditer)) );
+    Deltax_k_max  = max( [ Deltax_ws_max,Deltax_ds_max, ...
+                           Deltax_c_max,Deltax_a_max ] );
+    if (mod(n,i_output)==0)
+        fprintf(' Deltax_k_max,iter  = %g %g \n', ...
+                  Deltax_k_max,iter);
+    end
+    if (iter > 1)
+        fprintf(fid,' Time,Deltax_k_max,iter  = %g %g %g \n', ...
+                      time,Deltax_k_max,iter);
+        flag_iter = 1;
+    end
+    
+    if( ( A_R3 == 0 ) && ( A_R4 == 0 ) )   % (R1)-(R2) reaction model
+    %%AT if( 1 == 0 ) % Uncomment this line to force calc. of Y_O2 & pres
         Y_O2_newiter  = Y_O2_old;
         pres_newiter  = pres_old;
         DeltaYO2_max  = 0;
@@ -380,10 +422,6 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     Y_O2_newiter = tri(a,b,c,d);
     Y_O2_newiter = Y_O2_newiter';
         
-    % Apply under-relaxation
-    %%AT Y_O2_newiter = lambda*Y_O2_newiter + (1-lambda)*Y_O2_olditer;
-    %%AT
-        
     % Check for convergence of iteration loop
     DeltaYO2_max = max( abs(real(Y_O2_newiter-Y_O2_olditer)) );
     if(mod(n,i_output)==0)
@@ -407,21 +445,22 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     %   Evaluation of RHS2:
     %      RHS2 = 0.5*RHS2(n+1) + 0.5*RHS2(n)
     %
+    [a, b, c, d] = pressure_equation_QS( ...
+    temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
+    temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
+    Y_O2_olditer, pres_olditer, lambda_pres, ...
+    xRight, xCenter, dV_old, nx_old);
     %%AT
-    lambda_pres = 0;
-    %%AT
+    %{
     [a, b, c, d] = pressure_equation(dt, pres_old, ...
     temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
     Y_O2_olditer, pres_olditer, lambda_pres, ...
     xRight, xCenter, dV_old, nx_old);
+    %}
+    %%AT
     pres_newiter = tri(a,b,c,d);
     pres_newiter = pres_newiter';
-        
-    % Apply under-relaxation
-    %%AT pres_newiter = lambda_pres*pres_newiter + (1-lambda_pres)*pres_olditer;
-    pres_newiter = 0.5*pres_newiter + (1-0.5)*pres_olditer;
-    %%AT 
         
     % Check for convergence of iteration loop
     DeltaPres_max = max( abs(real(pres_newiter-pres_olditer)) );
@@ -437,9 +476,10 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         % *** End calculation of Y_O2 and pres ***
     end
     
-    if( ( DeltaTemp_max < (0.1*absTol_Temp/lambda) ) & ...
-        ( DeltaYO2_max  < (0.1*absTol_YO2 /lambda) ) & ...
-        ( DeltaPres_max < (0.1*absTol_pres/lambda) ) )
+    if( ( DeltaTemp_max < absTol_Temp ) & ...
+        ( Deltax_k_max  < absTol_x_k  ) & ...
+        ( DeltaYO2_max  < absTol_YO2  ) & ...
+        ( DeltaPres_max < absTol_pres ) )
         break;
     end
     if(iter==1000)
@@ -521,11 +561,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     end
     
     dt = min( [ dt_Temp,dt_xk,dt_YO2,dt_pres ] );
-    %%AT dt = min( [ dt_Temp,dt_xk,dt_YO2 ] );
     dt = min(dt,dt_max); % Safety: do not let dt go to very large values
-    %%AT
     %%AT dt = dt_old; % Uncomment this line for tests with fixed dt
-    %%AT 
  
     if(mod(n,i_output)==0)
         fprintf(' dt                   = %g \n',dt);
@@ -617,9 +654,9 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     
     for i=1:nx_new
         rho_s(i)  = rho_ws*x_ws(i) + rho_ds*x_ds(i) ...
-                  + rho_c*x_c(i)+ rho_a*x_a(i);
+                  + rho_c *x_c(i)  + rho_a *x_a(i);
         psi_sg(i) = psi_ws*x_ws(i) + psi_ds*x_ds(i) ...
-                  + psi_c*x_c(i) + psi_a*x_a(i);
+                  + psi_c *x_c(i)  + psi_a *x_a(i);
     end
      
     % Calculate the net surface heat flux and the surface temperature
@@ -693,13 +730,13 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         %  - Mass loss rate per unit volume [kg/s/m3]
         for i=1:nx_new     
             Y_O2s = max(Y_O2(i),0);
-            K_R1  = ( (rho_ws*x_ws(i)*(1-psi))^n_R1 ) ...
+            K_R1  = ( max(0,rho_ws*x_ws(i)*(1-psi))^n_R1 ) ...
                     *A_R1*exp(-Ta_R1/temp(i));
-            K_R2  = ( (rho_ds*x_ds(i)*(1-psi))^n_R2 ) ...
+            K_R2  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R2 ) ...
                     *A_R2*exp(-Ta_R2/temp(i));
-            K_R3  = ( (rho_ds*x_ds(i)*(1-psi))^n_R3 ) ...
+            K_R3  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R3 ) ...
                     *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp(i));
-            K_R4  = ( (rho_c *x_c(i) *(1-psi))^n_R4 ) ...
+            K_R4  = ( max(0,rho_c *x_c(i) *(1-psi))^n_R4 ) ...
                     *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp(i));
       
             MLRPUV(i) = (1-eta_ds_R1)*K_R1  + (1-eta_c_R2) *K_R2 ...
@@ -800,13 +837,13 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
          
         for i=1:nx_new
             Y_O2s = max(Y_O2(i),0);
-            K_R1  = ( (rho_ws*x_ws(i)*(1-psi))^n_R1 ) ...
+            K_R1  = ( max(0,rho_ws*x_ws(i)*(1-psi))^n_R1 ) ...
                     *A_R1*exp(-Ta_R1/temp(i));
-            K_R2  = ( (rho_ds*x_ds(i)*(1-psi))^n_R2 ) ...
+            K_R2  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R2 ) ...
                     *A_R2*exp(-Ta_R2/temp(i));
-            K_R3  = ( (rho_ds*x_ds(i)*(1-psi))^n_R3 ) ...
+            K_R3  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R3 ) ...
                     *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp(i));
-            K_R4  = ( (rho_c *x_c(i) *(1-psi))^n_R4 ) ...
+            K_R4  = ( max(0,rho_c *x_c(i) *(1-psi))^n_R4 ) ...
                     *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp(i));
                     
             RR1_save(i,n_output) = K_R1;

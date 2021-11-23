@@ -23,6 +23,7 @@ function [tempr1_newiter] = ...
     x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, Y_O2_olditer, ...
     lambda, temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, nx_old)
 
+
 global pres_g cp_g0 MW_g R ...
        rho_ws rho_ds rho_c rho_a ...
        c_ws c_ds c_c c_a ...      
@@ -30,8 +31,43 @@ global pres_g cp_g0 MW_g R ...
        A_R1 Ta_R1 n_R1 DeltaH_R1 eta_ds_R1 ...
        A_R2 Ta_R2 n_R2 DeltaH_R2 eta_c_R2 ...
        A_R3 Ta_R3 n_R3 n_O2_R3 DeltaH_R3 eta_c_R3 ...
-       A_R4 Ta_R4 n_R4 n_O2_R4 DeltaH_R4 eta_a_R4
+       A_R4 Ta_R4 n_R4 n_O2_R4 DeltaH_R4 eta_a_R4 ...
+       IFilter nFilter
 
+
+%%AT
+if(IFilter == 1)
+    % Filering of reaction rates for R3 and R4
+    for i = 1:nx_old
+        psi_new = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
+                + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
+        Y_O2s   = max(Y_O2_olditer(i),0);
+    
+        RR3(i)  = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
+                 *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/tempr1_olditer(i));
+        RR4(i)  = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
+                 *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/tempr1_olditer(i));
+    end
+    
+    for n = 1:nFilter
+        RR3bar(1) = 0.5*RR3(1) + 0.5*RR3(2);
+        for i=2:(nx_old-1)
+            RR3bar(i) = 0.25*RR3(i-1) + 0.5*RR3(i) + 0.25*RR3(i+1);
+        end
+        RR3bar(nx_old) = 0.5*RR3(nx_old-1) + 0.5*RR3(nx_old);
+    
+        RR3 = RR3bar;
+    
+        RR4bar(1) = 0.5*RR4(1) + 0.5*RR4(2);
+        for i=2:(nx_old-1)
+            RR4bar(i) = 0.25*RR4(i-1) + 0.5*RR4(i) + 0.25*RR4(i+1);
+        end
+        RR4bar(nx_old) = 0.5*RR4(nx_old-1) + 0.5*RR4(nx_old);
+    
+        RR4 = RR4bar;
+    end
+end
+%%AT
 
 for i = 1:nx_old
     
@@ -50,17 +86,24 @@ for i = 1:nx_old
     rhocp_eff = (1-psi)*rhocp_s + psi*rhocp_g; % Estimated at time t(n)
 
     % Volumetric rate of heat production/consumption [W/m3]
-    psi   = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
-          + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
-    Y_O2s = max(Y_O2_olditer(i),0);
-    K_R1  = ( (rho_ws*x_ws_olditer(i)*(1-psi))^n_R1 ) ...
-            *A_R1*exp(-Ta_R1/tempr1_olditer(i));
-    K_R2  = ( (rho_ds*x_ds_olditer(i)*(1-psi))^n_R2 ) ...
-            *A_R2*exp(-Ta_R2/tempr1_olditer(i));
-    K_R3  = ( (rho_ds*x_ds_olditer(i)*(1-psi))^n_R3 )*( Y_O2s^n_O2_R3 ) ...
-            *A_R3*exp(-Ta_R3/tempr1_olditer(i));
-    K_R4  = ( (rho_c *x_c_olditer(i) *(1-psi))^n_R4 )*( Y_O2s^n_O2_R4 ) ...
-            *A_R4*exp(-Ta_R4/tempr1_olditer(i));
+    psi_new = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
+            + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
+    Y_O2s   = max(Y_O2_olditer(i),0);
+    K_R1    = ( max(0,rho_ws*x_ws_olditer(i)*(1-psi_new))^n_R1 ) ...
+              *A_R1*exp(-Ta_R1/tempr1_olditer(i));
+    K_R2    = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R2 ) ...
+              *A_R2*exp(-Ta_R2/tempr1_olditer(i));
+    %%AT
+    if(IFilter == 1)
+        K_R3  = RR3(i);
+        K_R4  = RR4(i);
+    else
+        K_R3  = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
+               *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/tempr1_olditer(i));
+        K_R4  = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
+               *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/tempr1_olditer(i));
+    end
+    %%AT
     
     Qdotp = 0;
     Qdotm = 0;
@@ -87,12 +130,9 @@ for i = 1:nx_old
     Qdotp = Qdotp/rhocp_eff;
     Qdotm = Qdotm/rhocp_eff;
     
-    %%AT tempr1_newiter(i) = ( tempr0_newiter(i) + 0.5*dt*Qdotp ) ...
-    %%AT                   /( 1 - 0.5*dt*Qdotm/tempr1_olditer(i) );
     tempr1_newiter(i) = ...
     ( tempr0_newiter(i) + 0.5*dt*Qdotp + 0.5*lambda*tempr1_olditer(i) ) ...
     /( 1 - 0.5*dt*Qdotm/tempr1_olditer(i) + 0.5*lambda );
-    %%AT
     
 end
             
