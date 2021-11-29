@@ -55,7 +55,7 @@ for i = 1:nx_old
     
     % Porosity
     psi_old = psi_ws*x_ws_old(i) + psi_ds*x_ds_old(i) ...
-            + psi_c * x_c_old(i) + psi_a *x_a_old(i);
+            + psi_c * x_c_old(i) + psi_a * x_a_old(i);
         
     % Species mass conservation statements
     % - Notations:  xws_1mpsi_dV = x_ws x (1-psi) x dV

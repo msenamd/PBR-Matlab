@@ -15,8 +15,7 @@
 function [a, b, c, d] = oxygen_mass_conservation(dt, Y_O2_old, ...
     temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, pres_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
-    Y_O2_olditer, lambda, mdot_surf_old, h_conv, ...
-    xRight, xCenter, dV_old, nx_old)
+    Y_O2_olditer, lambda, h_conv, xRight, xCenter, dV_old, nx_old)
            
 
 global geometry A_rectangle L_cylinder ...
@@ -218,10 +217,16 @@ dx_surf      = xRight(nx_old)-xCenter(nx_old);
 h_mass       = h_conv/cp_g0;
 Bi           = h_mass*dx_surf/rhopsiD_surf;
 
+%%AT
+%{
 b(i) = b(i) + ( h_mass/(1+Bi) ) ...
                                   *0.5*dt/rhopsi_surf * S_pos(i)/dV_old(i);
 d(i) = d(i) + ( mdot_surf_old + (h_mass*Y_g_O2/(1+Bi)) ) ...
                                   *0.5*dt/rhopsi_surf * S_pos(i)/dV_old(i);
+%}
+b(i) = b(i) + ( h_mass/(1+Bi) )       *dt/rhopsi_surf * S_pos(i)/dV_old(i);
+d(i) = d(i) + ( h_mass*Y_g_O2/(1+Bi) )*dt/rhopsi_surf * S_pos(i)/dV_old(i);
+%%AT
 
 % 2 <= i <= (nx_old-1) (interior nodes)
 for i = 2:(nx_old-1)   

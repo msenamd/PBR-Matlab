@@ -32,10 +32,7 @@ L_cylinder  = 1e-0;
 % Conditions in the ambient external gas
 T_g    = 300;     % Temperature [K]
 u_g    = 0.0;     % Flow velocity [m/s]
-%%AT G      = 40e+3;   % Averaged irradiation [W/m2]
-u_g = 0;
-G   = 20e+3;
-%%AT
+G      = 20e+3;   % Averaged irradiation [W/m2]
 Y_g_O2 = 0.233;   % Oxygen mass fraction [-]
 pres_g = 101325;  % Absolute pressure [Pa]
 
