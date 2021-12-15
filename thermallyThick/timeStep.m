@@ -80,7 +80,7 @@ tau_RR3_min = 1000;
 if( (Y_g_O2 ~= 0) & (A_R3 ~= 0) )    
     for i = 1:101
         tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
-        tau_RR3 = 1/((Y_g_O2^n_O2_R3)*A_R3*exp(-Ta_R3/tem_tmp));
+        tau_RR3 = 1/(A_R3*exp(-Ta_R3/tem_tmp));
         tau_RR3_min = min(tau_RR3_min,tau_RR3);
     end
 end
@@ -90,8 +90,8 @@ fprintf(' tau_RR3_min,(tau_RR3_min/dt) = %g %g \n', ...
 tau_RR4_min = 1000;
 if( (Y_g_O2 ~= 0) & (A_R4 ~= 0) )
     for i = 1:101
-        tem_tmp = 300 + (i-1)*900/100; % Cover range 300 <= temp <= 1200 K
-        tau_RR4 = 1/((Y_g_O2^n_O2_R4)*A_R4*exp(-Ta_R4/tem_tmp));
+        tem_tmp = 300 + (i-1)*1200/100; % Cover range 300 <= temp <= 1500 K
+        tau_RR4 = 1/(A_R4*exp(-Ta_R4/min(tem_tmp,700)));
         tau_RR4_min = min(tau_RR4_min,tau_RR4);
     end
 end

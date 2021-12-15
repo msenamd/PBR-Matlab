@@ -15,7 +15,9 @@
 function [a, b, c, d] = oxygen_mass_conservation(dt, Y_O2_old, ...
     temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, pres_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
-    Y_O2_olditer, lambda, h_conv, xRight, xCenter, dV_old, nx_old)
+    Y_O2_olditer, lambda, h_conv, ...
+    sum_R1, sum_R2, sum_R3, sum_R4, ...
+    xRight, xCenter, dV_old, nx_old)
            
 
 global geometry A_rectangle L_cylinder ...
@@ -59,13 +61,19 @@ if(IFilter == 1)
     % Filering of reaction rates for R3 and R4
     for i = 1:nx_old
         psi_new = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
-                + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
+                + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);           
         Y_O2s   = max(Y_O2_olditer(i),0);
-    
-        RR3(i)  = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
-                 *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp_olditer(i));
-        RR4(i)  = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
-                 *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp_olditer(i));
+        
+        RR3(i)  = ...
+           ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new)*dV_old(i))^n_R3 ) ...
+                 *sum_R3(i)^(1-n_R3) ...
+                 *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
+                 *A_R3*exp(-Ta_R3/temp_olditer(i));
+        RR4(i)  = ...
+           ( max(0,rho_c *x_c_olditer(i) *(1-psi_new)*dV_old(i))^n_R4 ) ...
+                 *sum_R4(i)^(1-n_R4) ...
+                 *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
+                 *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
     end
 
     for n = 1:nFilter
@@ -84,7 +92,7 @@ if(IFilter == 1)
         RR4bar(nx_old) = 0.5*RR4(nx_old-1) + 0.5*RR4(nx_old);
     
         RR4 = RR4bar;
-    end
+    end 
 end
 %%AT
 
@@ -114,40 +122,46 @@ for i = 1:nx_old
     psi_new = psi_ws*x_ws_olditer(i) + psi_ds*x_ds_olditer(i) ...
             + psi_c * x_c_olditer(i) + psi_a * x_a_olditer(i);
     Y_O2s   = max(Y_O2_olditer(i),0);
-    K_R1    = ( max(0,rho_ws*x_ws_olditer(i)*(1-psi_new))^n_R1 ) ...
+    K_R1    = ...
+           ( max(0,rho_ws*x_ws_olditer(i)*(1-psi_new)*dV_old(i))^n_R1 ) ...
+              *sum_R1(i)^(1-n_R1) ...
               *A_R1*exp(-Ta_R1/temp_olditer(i));
-    K_R2    = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R2 ) ...
+    K_R2    = ...
+           ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new)*dV_old(i))^n_R2 ) ...
+              *sum_R2(i)^(1-n_R2) ...
               *A_R2*exp(-Ta_R2/temp_olditer(i));
     %%AT
     if(IFilter == 1)
-        K_R3 = RR3(i);
+        K_R3 = RR3(i);     
         K_R4 = RR4(i);
     else
-        K_R3 = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
-              *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp_olditer(i));
-        K_R4 = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
-              *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp_olditer(i));
+        K_R3 = ...
+           ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new)*dV_old(i))^n_R3 ) ...
+              *sum_R3(i)^(1-n_R3) ...
+              *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
+              *A_R3*exp(-Ta_R3/temp_olditer(i));
+        K_R4 = ...
+           ( max(0,rho_c *x_c_olditer(i) *(1-psi_new)*dV_old(i))^n_R4 ) ...
+              *sum_R4(i)^(1-n_R4) ...
+              *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
+              *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
     end
     %%AT
 
     % Assume n_O2_R3 >= 1 and n_O2_R4 >=1
     if( abs(Y_O2s) > 0 )
-        K_R3b = K_R3/Y_O2s;
-        K_R4b = K_R4/Y_O2s;
+        K_R3b = K_R3/max(Y_O2s,1e-14);
+        K_R4b = K_R4/max(Y_O2s,1e-14);
     else
         K_R3b = 0;
         K_R4b = 0;
     end
-    %%AT K_R3b  = ( max(0,rho_ds*x_ds_olditer(i)*(1-psi_new))^n_R3 ) ...
-    %%AT          *( Y_O2s^(n_O2_R3-1) )*A_R3*exp(-Ta_R3/temp_olditer(i));
-    %%AT K_R4b  = ( max(0,rho_c *x_c_olditer(i) *(1-psi_new))^n_R4 ) ...
-    %%AT          *( Y_O2s^(n_O2_R4-1) )*A_R4*exp(-Ta_R4/temp_olditer(i));
     
-    xstore = (1-eta_ds_R1)*K_R1  + (1-eta_c_R2) *K_R2 ...
-           + (1-eta_c_R3) *K_R3  + (1-eta_a_R4) *K_R4 ...    
-           + eta_O2_R3    *K_R3b + eta_O2_R4    *K_R4b;
+    xstore_b = (1-eta_ds_R1)*K_R1  + (1-eta_c_R2)*K_R2 ...
+             + (1-eta_c_R3) *K_R3  + (1-eta_a_R4)*K_R4 ...    
+             + eta_O2_R3    *K_R3b + eta_O2_R4   *K_R4b;
           
-    bRRO2(i) = xstore*dt/rho_g/psi;
+    bRRO2(i) = xstore_b*dt/rho_g/psi/dV_old(i);
 end
                
 % i = 1 (back surface)
@@ -174,8 +188,6 @@ d(i) = (1 - 0.5*FO_R + 0.5*CFL_R)*Y_O2_old(i) ...
      + (0.5*FO_R - 0.5*CFL_R)*Y_O2_old(i+1);
 %%AT
 % Apply under-relaxation in iterative scheme
-%%AT d(i) = d(i) + (1-lambda)*b(i)*Y_O2_olditer(i)/lambda;
-%%AT b(i) = b(i)/lambda;
 b(i) = b(i) + lambda;
 d(i) = d(i) + lambda*Y_O2_olditer(i);
 %%AT
@@ -204,8 +216,6 @@ d(i) = (0.5*FO_L + 0.5*CFL_L)*Y_O2_old(i-1) ...
      + (1 - 0.5*FO_L - 0.5*CFL_L)*Y_O2_old(i);
 %%AT
 % Apply under-relaxation in iterative scheme
-%%AT d(i) = d(i) + (1-lambda)*b(i)*Y_O2_olditer(i)/lambda;
-%%AT b(i) = b(i)/lambda;
 b(i) = b(i) + lambda;
 d(i) = d(i) + lambda*Y_O2_olditer(i);
 %%AT
@@ -217,16 +227,8 @@ dx_surf      = xRight(nx_old)-xCenter(nx_old);
 h_mass       = h_conv/cp_g0;
 Bi           = h_mass*dx_surf/rhopsiD_surf;
 
-%%AT
-%{
-b(i) = b(i) + ( h_mass/(1+Bi) ) ...
-                                  *0.5*dt/rhopsi_surf * S_pos(i)/dV_old(i);
-d(i) = d(i) + ( mdot_surf_old + (h_mass*Y_g_O2/(1+Bi)) ) ...
-                                  *0.5*dt/rhopsi_surf * S_pos(i)/dV_old(i);
-%}
 b(i) = b(i) + ( h_mass/(1+Bi) )       *dt/rhopsi_surf * S_pos(i)/dV_old(i);
 d(i) = d(i) + ( h_mass*Y_g_O2/(1+Bi) )*dt/rhopsi_surf * S_pos(i)/dV_old(i);
-%%AT
 
 % 2 <= i <= (nx_old-1) (interior nodes)
 for i = 2:(nx_old-1)   
@@ -262,8 +264,6 @@ for i = 2:(nx_old-1)
          + (0.5*FO_R - 0.5*CFL_R)*Y_O2_old(i+1);
     %%AT
     % Apply under-relaxation in iterative scheme
-    %%AT d(i) = d(i) + (1-lambda)*b(i)*Y_O2_olditer(i)/lambda;
-    %%AT b(i) = b(i)/lambda;
     b(i) = b(i) + lambda;
     d(i) = d(i) + lambda*Y_O2_olditer(i);
     %%AT

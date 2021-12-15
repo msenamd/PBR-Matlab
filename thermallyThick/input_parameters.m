@@ -15,7 +15,7 @@ function [ T_end, geometry, delta_i, A_rectangle, L_cylinder, ...
            = input_parameters
        
 % Duration of the simulation [s]
-T_end = 2000;
+T_end = 40000;
 
 % Particle shape (available shapes: rectangle - cylinder - sphere)
 geometry = "rectangle";  
@@ -31,7 +31,7 @@ L_cylinder  = 1e-0;
 
 % Conditions in the ambient external gas
 T_g    = 300;     % Temperature [K]
-u_g    = 0.0;     % Flow velocity [m/s]
+u_g    = 1.0;     % Flow velocity [m/s]
 G      = 20e+3;   % Averaged irradiation [W/m2]
 Y_g_O2 = 0.233;   % Oxygen mass fraction [-]
 pres_g = 101325;  % Absolute pressure [Pa]
@@ -96,7 +96,7 @@ sigma = 5.67e-8;   % Stefan-Boltzmann constant [W/m2/K4]
 A_R1      = 4.29e+3;    % Pre-exponential factor [1/s]
 E_R1      = 43.8e+3;    % Activation energy [J/mol]
 Ta_R1     = E_R1/R;     % Activation temperature [K]
-n_R1      = 1.0;        % Solid-phase reactant exponent [-]
+n_R1      = 0.99;       % Solid-phase reactant exponent [-]
 DeltaH_R1 =-2410e+3;    % Heat of evaporation [J/kg] (< 0, endothermic)
 eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
                         % NB: at constant volume/porosity in reaction (R1),
@@ -138,8 +138,37 @@ eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
 eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
 
 
-%%AT Uncomment the lines below for tests with fixed volume dV
+%%AT
 %%{
+%{
+psi_ws = 0.0167; % Porosity of the particle when pure wet solid [-]
+psi_ds = 0.05;   % Porosity of the particle when pure solid [-]
+psi_c  = 0.15;   % Porosity of the particle when pure char [-]
+psi_a  = 0.45;   % Porosity of the particle when pure ash [-]
+%}
+psi_ws = 1-(380/390); % Porosity of the particle when pure wet solid [-]
+psi_ds = 1-(361/390); % Porosity of the particle when pure solid [-]
+psi_c  = 0.5;
+psi_a  = 0.7;
+
+eta_ds_R1 = (rho_ds/rho_ws)*(1-psi_ds)/(1-psi_ws);
+eta_c_R2  = (rho_c /rho_ds)*(1-psi_c) /(1-psi_ds);
+eta_c_R3  = (rho_c /rho_ds)*(1-psi_c) /(1-psi_ds);
+eta_O2_R3 = 0.1*(1-eta_c_R3);
+eta_a_R4  = (rho_a/rho_c)  *(1-psi_a) /(1-psi_c);
+eta_O2_R4 = 2.0*(1-eta_a_R4);
+
+T_end = 600;
+u_g    = 0.1;     % Flow velocity [m/s]
+%%AT G      = 20e+3;   % Averaged irradiation [W/m2]
+%AT Y_g_O2 = 0.000;   % Oxygen mass fraction [-]
+%AT Y_O2_i = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
+%}
+%%AT
+
+
+%%AT Uncomment the lines below for tests with fixed volume dV
+%{
 rho_ws    = 380;
 rho_ds    = 361;
 rho_c     = 73;

@@ -57,7 +57,7 @@ dt_i = timeStep(rho_ws, rho_ds, rho_c, rho_a, ...
                 A_R4, Ta_R4, n_O2_R4, ...
                 Y_g_O2, nu_g0, MW_g, R, dx_i);
 %n_f = round(T_end/dt_i);   % Total number of time steps
-n_f = 1e7;   % Total number of time steps
+n_f = round(T_end/0.01);   % Total number of time steps
 fprintf(' n_f = %g \n',n_f);
 fprintf(' \n');
 pause;
@@ -65,43 +65,20 @@ pause;
 % Parameter that controls the frequency at which quantities are saved
 % to output files
 %%AT i_output  = 50;
-%%AT
-i_output  = 100;
+i_output  = 500;
 %%AT
 
 % Parameters that control the time step and solution accuracy
-%%AT Threshold_Temp = 1.0;     % Max. value of temp variation during dt [K]
-%%AT Threshold_Temp = 0.1;     % Max. value of temp variation during dt [K]
-Threshold_Temp = 0.10;    % Max. value of temp variation during dt [K]
-Threshold_xk   = 0.01;    % Max. value of x_k variation during dt [-]
-Threshold_YO2  = 0.01;    % Max. value of Y_O2 variation during dt [-]
-Threshold_pres = 0.1;     % Max. value of pres variation during dt [-]
-lambda         = 5.0;     % Under-relaxation parameter for temp & Y_O2 [-]
-lambda_xk      = 0.0;     % Under-relaxation parameter for x_k [-]
-lambda_pres    = 0.0;     % Under-relaxation parameter for pressure [-]
-%%AT
-%{
-absTol_Temp    = (0.1*Threshold_Temp/lambda); % Absolute tolerance in
-                                              % iter. loop for temp [K]
-absTol_x_k     = (0.001*Threshold_xk);        % Absolute tolerance in
-                                              % iter. loop for xk [-]
-absTol_YO2     = (0.1*Threshold_YO2 /lambda); % Absolute tolerance in 
-                                              % iter. loop for Y_O2 [-] 
-absTol_pres    = (0.1*Threshold_pres);        % Absolute tolerance in
-                                              % iter. loop for pres [Pa] 
-%}
-%%{                                              
-absTol_Temp    = (0.01*Threshold_Temp/lambda); % Absolute tolerance in
-                                               % iter. loop for temp [K]
-absTol_x_k     = (0.0001*Threshold_xk);        % Absolute tolerance in
-                                               % iter. loop for xk [-]
-absTol_YO2     = (0.01*Threshold_YO2 /lambda); % Absolute tolerance in 
-                                               % iter. loop for Y_O2 [-]
-absTol_pres    = (0.01*Threshold_pres);        % Absolute tolerance in
-                                               % iter. loop for pres [Pa]
-%}
-%%AT
-dt_max         = 0.1;   % Max. value of dt [s]
+%%AT Threshold_Temp = 1.0;    % Max. value of temp variation during dt [K]
+%%AT Threshold_Temp = 0.1;    % Max. value of temp variation during dt [K]
+Threshold_Temp = 0.1;    % Max. value of temp variation during dt [K]
+Threshold_xk   = 0.01;   % Max. value of x_k variation during dt [-]
+Threshold_YO2  = 0.01;   % Max. value of Y_O2 variation during dt [-]
+Threshold_pres = 0.1;    % Max. value of pres variation during dt [Pa]
+lambda         = 0.1;    % Under-relaxation parameter for temp & Y_O2 [-]
+lambda_xk      = 0.0;    % Under-relaxation parameter for x_k [-]
+lambda_pres    = 0.0;    % Under-relaxation parameter for pressure [-]
+dt_max         = 0.1;    % Max. value of dt [s]
 
 % Parameters that control filtering of reaction rates for R3 and R4
 IFilter = 0; % IFilter =  1 to activate filtering
@@ -152,9 +129,6 @@ q_surf_i = eps_ws*G - eps_ws*sigma*temp_surf^4 ...
          + h_conv*(T_g-temp_surf);  % Net surface heat flux [W/m2] (t = 0)
 q_surf   = q_surf_i;
 
-mdot_surf_i = 0;
-mdot_surf   = mdot_surf_i;   % Surface oxygen mass flux [kg/s] (t = 0)
-
 % Solid mass density (t = 0)
 rho_s_i = rho_ws*x_ws_i + rho_ds*x_ds_i + rho_c*x_c_i + rho_a*x_a_i;
 
@@ -202,10 +176,10 @@ XWS_save    = x_ws_i *ones(nx_i,round(n_f/i_output));  % Vol. frac. wet s.
 XDS_save    = x_ds_i *ones(nx_i,round(n_f/i_output));  % Vol. frac. dry s.
 XC_save     = x_c_i  *ones(nx_i,round(n_f/i_output));  % Vol. frac. char
 XA_save     = x_a_i  *ones(nx_i,round(n_f/i_output));  % Vol. frac. ash
-RR1_save    =         zeros(nx_i,round(n_f/i_output)); % Reaction rate R1
-RR2_save    =         zeros(nx_i,round(n_f/i_output)); % Reaction rate R2
-RR3_save    =         zeros(nx_i,round(n_f/i_output)); % Reaction rate R3
-RR4_save    =         zeros(nx_i,round(n_f/i_output)); % Reaction rate R4
+RR1_save    =         zeros(nx_i,round(n_f/i_output)); % R1 reaction rate
+RR2_save    =         zeros(nx_i,round(n_f/i_output)); % R2 reaction rate
+RR3_save    =         zeros(nx_i,round(n_f/i_output)); % R3 reaction rate
+RR4_save    =         zeros(nx_i,round(n_f/i_output)); % R4 reaction rate
 Qdot_save   =         zeros(nx_i,round(n_f/i_output)); % Volumetric HRR
 YO2G_save   = Y_O2_i *ones(nx_i,round(n_f/i_output));  % Mass frac. of O2
 PRESG_save  = pres_i *ones(nx_i,round(n_f/i_output));  % Pressure
@@ -215,6 +189,23 @@ VELG_save   =         zeros(nx_i,round(n_f/i_output)); % Gas velocity
 
 % Set the computational grid
 [xRight, xCenter, xLeft1, dV] = mesh(nx_i, dx);
+
+% Arrays needed in exressions of R1-R2-R3-R4 reaction rates
+sum_R1_i = rho_ws*x_ws_i*(1-psi_i);
+sum_R1   = sum_R1_i.*dV;   % Array containing integral term in R1-RR
+sum_R1   = max(sum_R1, 1e-14);
+
+sum_R2_i = rho_ds*x_ds_i*(1-psi_i);
+sum_R2   = sum_R2_i.*dV;   % Array containing integral term in R2-RR
+sum_R2   = max(sum_R2, 1e-14);
+
+sum_R3_i = rho_ds*x_ds_i*(1-psi_i);
+sum_R3   = sum_R3_i.*dV;   % Array containing integral term in R3-RR
+sum_R3   = max(sum_R3, 1e-14);
+
+sum_R4_i = rho_c*x_c_i*(1-psi_i);
+sum_R4   = sum_R4_i.*dV;   % Array containing integral term in R4-RR
+sum_R4   = max(sum_R4, 1e-14);
 
 % Save output quantities at initial time
 n_output            = n_output+1;
@@ -244,21 +235,52 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     n = n + 1;
     
     % Solution at previous time step (t = time-dt)
-    nx_old    = nx_new;
-    dV_old    = dV;
-    dx_old    = dx;
-    dt_old    = dt;    
-    temp_old  = temp;
-    x_ws_old  = x_ws;
-    x_ds_old  = x_ds;
-    x_c_old   = x_c;
-    x_a_old   = x_a;
-    Y_O2_old  = Y_O2;
-    pres_old  = pres;
+    nx_old   = nx_new;
+    dV_old   = dV;
+    dx_old   = dx;
+    dt_old   = dt;    
+    temp_old = temp;
+    x_ws_old = x_ws;
+    x_ds_old = x_ds;
+    x_c_old  = x_c;
+    x_a_old  = x_a;
+    Y_O2_old = Y_O2;
+    pres_old = pres;
     
-    q_surf_old    = q_surf;
     temp_surf_old = temp_surf;
-    mdot_surf_old = mdot_surf;
+    
+    for i=1:nx_old
+        psi_new = psi_ws*x_ws_old(i) + psi_ds*x_ds_old(i) ...
+                + psi_c * x_c_old(i) + psi_a * x_a_old(i);          
+        Y_O2s   = max(Y_O2_old(i),0);
+        
+        K_R1 = ...
+           ( max(0,rho_ws*x_ws_old(i)*(1-psi_new)*dV_old(i))^n_R1 ) ...
+              *sum_R1(i)^(1-n_R1) ...
+              *A_R1*exp(-Ta_R1/temp_old(i));
+        K_R2 = ...
+           ( max(0,rho_ds*x_ds_old(i)*(1-psi_new)*dV_old(i))^n_R2 ) ...
+              *sum_R2(i)^(1-n_R2) ...
+              *A_R2*exp(-Ta_R2/temp_old(i));
+        K_R3 = ...
+           ( max(0,rho_ds*x_ds_old(i)*(1-psi_new)*dV_old(i))^n_R3 ) ...
+                 *sum_R3(i)^(1-n_R3) ...
+                 *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
+                 *A_R3*exp(-Ta_R3/temp_old(i));
+        %{
+        K_R4 = ...
+           ( max(0,rho_c *x_c_old(i) *(1-psi_new)*dV_old(i))^n_R4 ) ...
+              *sum_R4(i)^(1-n_R4) ...
+              *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
+              *A_R4*exp(-Ta_R4/min(temp_old(i),700));
+        %}
+
+        sum_R1(i) = sum_R1(i);
+        sum_R2(i) = sum_R2(i) + dt * eta_ds_R1*K_R1*dV_old(i);
+        sum_R3(i) = sum_R3(i) + dt * eta_ds_R1*K_R1*dV_old(i);
+        sum_R4(i) = sum_R4(i) + dt ...
+                                 * (eta_c_R2*K_R2+eta_c_R3*K_R3)*dV_old(i);
+    end
     
     % Solution at new time step (t = time)
     
@@ -276,8 +298,6 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     %--- Begin iterative loop ---    
     % Initial guess
     temp_newiter = temp_old;
-    temp1        = temp_old;
-    temp2        = temp_old;
     x_ws_newiter = x_ws_old;
     x_ds_newiter = x_ds_old;
     x_c_newiter  = x_c_old;
@@ -286,10 +306,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     pres_newiter = pres_old;
     
     temp_surf_newiter = temp_surf_old;
-        
-    for iter=1:1000
-        
-    % Solution at new time step, at previous iteration
+    %%AT
     temp_olditer = temp_newiter;
     x_ws_olditer = x_ws_newiter;
     x_ds_olditer = x_ds_newiter;
@@ -299,76 +316,39 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     pres_olditer = pres_newiter;
     
     temp_surf_olditer = temp_surf_newiter;
+    %%AT
+        
+    for iter=1:1000
+        
+    % Solution at new time step, at previous iteration
+    %%AT
+    %{
+    temp_olditer = temp_newiter;
+    x_ws_olditer = x_ws_newiter;
+    x_ds_olditer = x_ds_newiter;
+    x_c_olditer  = x_c_newiter;
+    x_a_olditer  = x_a_newiter;
+    Y_O2_olditer = Y_O2_newiter;
+    pres_olditer = pres_newiter;
+    
+    temp_surf_olditer = temp_surf_newiter;
+    %}
+    %%AT
+    %%{
+    temp_olditer = 0.5*temp_newiter + 0.5*temp_olditer;
+    x_ws_olditer = 0.5*x_ws_newiter + 0.5*x_ws_olditer;
+    x_ds_olditer = 0.5*x_ds_newiter + 0.5*x_ds_olditer;
+    x_c_olditer  = 0.5*x_c_newiter  + 0.5*x_c_olditer;
+    x_a_olditer  = 0.5*x_a_newiter  + 0.5*x_a_olditer;
+    Y_O2_olditer = 0.5*Y_O2_newiter + 0.5*Y_O2_olditer;
+    pres_olditer = 0.5*pres_newiter + 0.5*pres_olditer;
+    
+    temp_surf_olditer = 0.5*temp_surf_newiter + 0.5*temp_surf_olditer;
+    %}
+    %%AT
         
     % Calculate solution at new time step, at new iteration
     
-    %%AT
-    %{
-    % - Calculate temperature
-    %
-    % Note: solve dTp/dt = RHS = (RHS1+RHS2) where RHS1 is energy change
-    % due to reactions (R1)-(R4) and RHS2 is energy change due to
-    % diffusive/convective transport of heat and to gas-to-solid heat
-    % transfer at the exposed surface
-    %
-    % Discretization (implicit):
-    %   (Tp(n+r1)-Tp(n+r0))/dt = RHS1 where r0 and r1 designate fractional
-    %                            steps, 0 <= r0,r1 <= 1 and where RHS1 is
-    %                            evaluated at time (n+r1)
-    %   (Tp(n+r1)-Tp(n+r0))/dt = RHS2 where RHS2 is evaluated using
-    %                            Crank-Nicolson
-    %
-    % Evaluation of RHS2 (energy change due to transport and heat transfer
-    % at the exposed surface):
-    %   RHS2 = 0.5*RHS2(n+r1) + 0.5*RHS2(n+r0)
-    %
-    % Operator splitting method (Strang's method)
-    %   Step 1: 0.25*d(Tp)/dt = (0.5*RHS1)
-    %           t(n) <= t <= t(n+0.25)
-    %   Step 2: 0.5 *d(Tp)/dt = (1.0*RHS2)
-    %           t(n+0.25) <= t <= t(n+0.75)
-    %   Step 3: 0.25*d(Tp)/dt = (0.5*RHS1)
-    %           t(n+0.75) <= t <= t(n+1)
-    %
-        
-    % Step 1: calculate temp1 as the temperature at sub-step t(n+0.25)
-    %   tempr0_newiter = temp_old
-    %   tempr1_olditer = temp1
-    %   tempr1_newiter = temp1
-    [temp1] = ...
-        energy_conservation_reactionstep(dt, temp_old, temp1, ...
-    x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, Y_O2_olditer, ...
-    lambda, temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, nx_old);
-    temp1   = temp1';
-    
-    % Step 2: calculate temp2 as the temperature at sub-step t(n+0.75)
-    %    tempr0_newiter = temp1
-    %    tempr1_olditer = temp2
-    %    tempr1_newiter = temp2
-    tempc_nx = temp_old(nx_old);
-    
-    [a, b, c, d] = ...
-              energy_conservation_diffusionstep(dt, temp1, temp2, ...
-              temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, pres_old, ...
-              q_surf_old, tempc_nx, temp_surf_old, h_conv, ...
-              lambda, xRight, xCenter, dV_old, nx_old);
-    temp2 = tri(a,b,c,d);
-    temp2 = temp2';
-    
-    % Step 3: calculate temp3 as the temperature at sub-step t(n+1)
-    %   tempr0_newiter = temp2
-    %   tempr1_olditer = temp_olditer
-    %   tempr1_newiter = temp_newiter
-    [temp_newiter] = ...
-        energy_conservation_reactionstep(dt, temp2, temp_olditer, ...
-    x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, Y_O2_olditer, ...
-    lambda, temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, nx_old);
-    temp_newiter   = temp_newiter';
-    %}
-    %%AT
-    
-    %%AT
-    %%{
     % - Calculate temperature
     %
     % Discretization (semi-implicit):
@@ -382,28 +362,27 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     %   Evaluation of RHS2:
     %      RHS2 = 0.5*RHS2(n+1) + 0.5*RHS2(n)
     %    
-    %%AT tempc_nx = temp_old(nx_old);
     
     [a, b, c, d, temp_surf_newiter] = ...
              energy_conservation(dt, temp_old, temp_olditer, ...
              x_ws_old, x_ds_old, x_c_old, x_a_old, pres_old, ...
              x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
              Y_O2_olditer, temp_surf_olditer, h_conv, ...
-             lambda, xRight, xCenter, dV_old, nx_old);
+             sum_R1, sum_R2, sum_R3, sum_R4, ...
+             lambda, xRight, xCenter, dV_old, nx_old);         
     temp_newiter = tri(a,b,c,d);
     temp_newiter = temp_newiter';
-    %}
-    %%AT
         
-    % Check for convergence of iteration loop
-    DeltaTemp_max = max( abs(real(temp_newiter-temp_olditer)) );
+    % Check for convergence of iterative loop
+    DeltaTemp_max_iter = max( abs(temp_newiter-temp_olditer) );
+    DeltaTemp_max_dt   = max( abs(temp_newiter-temp_old    ) );
     if (mod(n,i_output)==0)
-        fprintf(' DeltaTemp_max,iter = %g %g \n', ...
-                  DeltaTemp_max,iter);
+        fprintf(' DeltaTemp_max_iter,iter = %g %g \n', ...
+                  DeltaTemp_max_iter,iter);
     end
     if (iter > 1)
-        fprintf(fid,' Time,DeltaTemp_max,iter = %g %g %g \n', ...
-                      time,DeltaTemp_max,iter);
+        fprintf(fid,' Time,DeltaTemp_max_iter,iter = %g %g %g \n', ...
+                      time,DeltaTemp_max_iter,iter);
         flag_iter = 1;
     end
     
@@ -411,43 +390,44 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     [x_ws_newiter, x_ds_newiter, x_c_newiter, x_a_newiter, dV] = ...       
     mass_conservation_v2(dt, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
-    Y_O2_olditer, lambda_xk, dV_old, nx_old);
-    %%AT
-    %{
-    [x_ws_newiter, x_ds_newiter, x_c_newiter, x_a_newiter, dV] = ...       
-    mass_conservation(dt, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
-    temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
-    Y_O2_olditer, dV_old, nx_old);
-    %}
-    %%AT
+    Y_O2_olditer, sum_R1, sum_R2, sum_R3, sum_R4, ...
+    lambda_xk, dV_old, nx_old);
     x_ws_newiter = x_ws_newiter';
     x_ds_newiter = x_ds_newiter';
     x_c_newiter  = x_c_newiter';
     x_a_newiter  = x_a_newiter';
     
-    % Check for convergence of iteration loop
-    Deltax_ws_max = max( abs(real(x_ws_newiter-x_ws_olditer)) );
-    Deltax_ds_max = max( abs(real(x_ds_newiter-x_ds_olditer)) );
-    Deltax_c_max  = max( abs(real(x_c_newiter - x_c_olditer)) );
-    Deltax_a_max  = max( abs(real(x_a_newiter - x_a_olditer)) );
-    Deltax_k_max  = max( [ Deltax_ws_max,Deltax_ds_max, ...
-                           Deltax_c_max,Deltax_a_max ] );
+    % Check for convergence of iterative loop
+    Deltax_ws_max_iter = max( abs(x_ws_newiter-x_ws_olditer) );
+    Deltax_ds_max_iter = max( abs(x_ds_newiter-x_ds_olditer) );
+    Deltax_c_max_iter  = max( abs(x_c_newiter - x_c_olditer) );
+    Deltax_a_max_iter  = max( abs(x_a_newiter - x_a_olditer) );
+    Deltax_k_max_iter  = max( [ Deltax_ws_max_iter,Deltax_ds_max_iter, ...
+                                Deltax_c_max_iter ,Deltax_a_max_iter ] );
+    Deltax_ws_max_dt   = max( abs(x_ws_newiter-x_ws_old) );
+    Deltax_ds_max_dt   = max( abs(x_ds_newiter-x_ds_old) );
+    Deltax_c_max_dt    = max( abs(x_c_newiter - x_c_old) );
+    Deltax_a_max_dt    = max( abs(x_a_newiter - x_a_old) );
+    Deltax_k_max_dt    = max( [ Deltax_ws_max_dt,Deltax_ds_max_dt, ...
+                                Deltax_c_max_dt ,Deltax_a_max_dt ] );
     if (mod(n,i_output)==0)
-        fprintf(' Deltax_k_max,iter  = %g %g \n', ...
-                  Deltax_k_max,iter);
+        fprintf(' Deltax_k_max_iter,iter  = %g %g \n', ...
+                  Deltax_k_max_iter,iter);
     end
     if (iter > 1)
-        fprintf(fid,' Time,Deltax_k_max,iter  = %g %g %g \n', ...
-                      time,Deltax_k_max,iter);
+        fprintf(fid,' Time,Deltax_k_max_iter,iter  = %g %g %g \n', ...
+                      time,Deltax_k_max_iter,iter);
         flag_iter = 1;
     end
     
     %%AT if( ( A_R3 == 0 ) && ( A_R4 == 0 ) )   % (R1)-(R2) reaction model
     if( 1 == 0 ) % Uncomment this line to force calc. of Y_O2 & pres
-        Y_O2_newiter  = Y_O2_old;
-        pres_newiter  = pres_old;
-        DeltaYO2_max  = 0;
-        DeltaPres_max = 0;
+        Y_O2_newiter       = Y_O2_old;
+        pres_newiter       = pres_old;
+        DeltaYO2_max_iter  = 0;
+        DeltaYO2_max_dt    = 0;
+        DeltaPres_max_iter = 0;
+        DeltaPres_max_dt   = 0;
     else
         % *** Begin calculation of Y_O2 and pres ***
         
@@ -467,19 +447,22 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     [a, b, c, d] = oxygen_mass_conservation(dt, Y_O2_old, ...
     temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, pres_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
-    Y_O2_olditer, lambda, h_conv, xRight, xCenter, dV_old, nx_old);
+    Y_O2_olditer, lambda, h_conv, ...
+    sum_R1, sum_R2, sum_R3, sum_R4, ...
+    xRight, xCenter, dV_old, nx_old);
     Y_O2_newiter = tri(a,b,c,d);
     Y_O2_newiter = Y_O2_newiter';
         
-    % Check for convergence of iteration loop
-    DeltaYO2_max = max( abs(real(Y_O2_newiter-Y_O2_olditer)) );
+    % Check for convergence of iterative loop
+    DeltaYO2_max_iter = max( abs(Y_O2_newiter-Y_O2_olditer) );
+    DeltaYO2_max_dt   = max( abs(Y_O2_newiter-Y_O2_old    ) );
     if(mod(n,i_output)==0)
-        fprintf(' DeltaYO2_max,iter  = %g %g \n', ...
-                  DeltaYO2_max,iter);
+        fprintf(' DeltaYO2_max_iter,iter  = %g %g \n', ...
+                  DeltaYO2_max_iter,iter);
     end
     if (iter > 1)
-        fprintf(fid,' Time,DeltaYO2_max,iter  = %g %g %g \n',...
-                      time,DeltaYO2_max,iter);
+        fprintf(fid,' Time,DeltaYO2_max_iter,iter  = %g %g %g \n',...
+                      time,DeltaYO2_max_iter,iter);
     end
         
     % - Calculate pressure
@@ -498,41 +481,34 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
     temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
     Y_O2_olditer, pres_olditer, lambda_pres, ...
+    sum_R1, sum_R2, sum_R3, sum_R4, ...
     xRight, xCenter, dV_old, nx_old);
-    %%AT
-    %{
-    [a, b, c, d] = pressure_equation(dt, pres_old, ...
-    temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, ...
-    temp_olditer, x_ws_olditer, x_ds_olditer, x_c_olditer, x_a_olditer, ...
-    Y_O2_olditer, pres_olditer, lambda_pres, ...
-    xRight, xCenter, dV_old, nx_old);
-    %}
-    %%AT
     pres_newiter = tri(a,b,c,d);
     pres_newiter = pres_newiter';
         
-    % Check for convergence of iteration loop
-    DeltaPres_max = max( abs(real(pres_newiter-pres_olditer)) );
+    % Check for convergence of iterative loop
+    DeltaPres_max_iter = max( abs(pres_newiter-pres_olditer) );
+    DeltaPres_max_dt   = max( abs(pres_newiter-pres_old    ) );
     if(mod(n,i_output)==0)
-        fprintf(' DeltaPres_max,iter = %g %g \n', ...
-                  DeltaPres_max,iter);
+        fprintf(' DeltaPres_max_iter,iter = %g %g \n', ...
+                  DeltaPres_max_iter,iter);
     end
     if (iter > 1)
-        fprintf(fid,' Time,DeltaPres_max,iter = %g %g %g \n',...
-                      time,DeltaPres_max,iter);
+        fprintf(fid,' Time,DeltaPres_max_iter,iter = %g %g %g \n',...
+                      time,DeltaPres_max_iter,iter);
     end
     
         % *** End calculation of Y_O2 and pres ***
     end
     
-    if( ( DeltaTemp_max < absTol_Temp ) & ...
-        ( Deltax_k_max  < absTol_x_k  ) & ...
-        ( DeltaYO2_max  < absTol_YO2  ) & ...
-        ( DeltaPres_max < absTol_pres ) )
+    if( ( DeltaTemp_max_iter <= (0.01*DeltaTemp_max_dt/lambda) ) & ...
+        ( Deltax_k_max_iter  <= (0.01*Threshold_xk) )            & ...
+        ( DeltaYO2_max_iter  <= (0.01*DeltaYO2_max_dt /lambda) ) & ...
+        ( DeltaPres_max_iter <= (0.01*Threshold_pres) ) )
         break;
     end
     if(iter==1000)
-        fprintf(' Problem in iteration loop: break at time %g \n',time);
+        fprintf(' Problem in iterative loop: break at time %g \n',time);
         fprintf(' \n');
         return;
     end
@@ -550,60 +526,48 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     pres = pres_newiter;
     
     % Time step restriction:
-    % - Update dt such that abs( Tp(n+1)-Tp(n) ) <= Threshold     
-    DeltaTemp_max = max( abs(real(temp-temp_old)) );
-    
+    % - Update dt such that abs( Tp(n+1)-Tp(n) ) <= Threshold_Temp   
     % Safety: (1) Limit the time step dt so that variations in temperature
     %             are less than a user-defined Threshold
     %         (2) Limit the time step dt to a maximum of 10% variations
-    if( DeltaTemp_max > 0 )
-        dt_Temp = dt_old*Threshold_Temp/DeltaTemp_max;     % Constraint (1)
+    if( DeltaTemp_max_dt > 0 )
+        dt_Temp = dt_old*Threshold_Temp/DeltaTemp_max_dt;  % Constraint (1)
         dt_Temp = max(0.9*dt_old,min(1.1*dt_old,dt_Temp)); % Constraint (2)
     else
         dt_Temp = 1.1*dt_old;
     end
 
     % Time step restriction:
-    % - Update dt such that abs( xk(n+1)-xk(n) ) <= Threshold
-    Deltax_ws_max = max( abs(real(x_ws-x_ws_old)) );
-    Deltax_ds_max = max( abs(real(x_ds-x_ds_old)) );
-    Deltax_c_max  = max( abs(real(x_c -x_c_old) ) );
-    Deltax_a_max  = max( abs(real(x_a -x_a_old) ) );
-    Deltax_k_max  = max( [ Deltax_ws_max,Deltax_ds_max, ...
-                           Deltax_c_max,Deltax_a_max ] );
+    % - Update dt such that abs( xk(n+1)-xk(n) ) <= Threshold_xk
     % Safety: (1) Limit the time step dt so that variations in x_k
     %             are less than a user-defined Threshold
     %         (2) Limit the time step dt to a maximum of 10% variations
-    if( Deltax_k_max > 0 )
-        dt_xk = dt_old*Threshold_xk/Deltax_k_max;        % Constraint (1)
+    if( Deltax_k_max_dt > 0 )
+        dt_xk = dt_old*Threshold_xk/Deltax_k_max_dt;     % Constraint (1)
         dt_xk = max(0.9*dt_old,min(1.1*dt_old,dt_xk));   % Constraint (2)
     else
         dt_xk = 1.1*dt_old;
     end
      
     % Time step restriction:
-    % - Update dt such that abs( Y_O2(n+1)-Y_O2(n) ) <= Threshold     
-    DeltaYO2_max = max( abs(real(Y_O2-Y_O2_old)) );
-    
+    % - Update dt such that abs( Y_O2(n+1)-Y_O2(n) ) <= Threshold_YO2         
     % Safety: (1) Limit the time step dt so that variations in Y_O2
     %             are less than a user-defined Threshold
     %         (2) Limit the time step dt to a maximum of 10% variations
-    if( DeltaYO2_max > 0 )
-        dt_YO2 = dt_old*Threshold_YO2/DeltaYO2_max;      % Constraint (1)
+    if( DeltaYO2_max_dt > 0 )
+        dt_YO2 = dt_old*Threshold_YO2/DeltaYO2_max_dt;   % Constraint (1)
         dt_YO2 = max(0.9*dt_old,min(1.1*dt_old,dt_YO2)); % Constraint (2)
     else
         dt_YO2 = 1.1*dt_old;
     end
 
     % Time step restriction:
-    % - Update dt such that abs( pres(n+1)-pres(n) ) <= Threshold
-    DeltaPres_max = max( abs(real(pres-pres_old)) );
-
+    % - Update dt such that abs( pres(n+1)-pres(n) ) <= Threshold_pres
     % Safety: (1) Limit the time step dt so that variations in pres
     %             are less than a user-defined Threshold
     %         (2) Limit the time step dt to a maximum of 10% variations
-    if( DeltaPres_max > 0 )
-        dt_pres = dt_old*Threshold_pres/DeltaPres_max;     % Constraint (1)
+    if( DeltaPres_max_dt > 0 )
+        dt_pres = dt_old*Threshold_pres/DeltaPres_max_dt;  % Constraint (1)
         dt_pres = max(0.9*dt_old,min(1.1*dt_old,dt_pres)); % Constraint (2)
     else
         dt_pres = 1.1*dt_old;
@@ -616,30 +580,30 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     if(mod(n,i_output)==0)
         fprintf(' time, dt             = %g %g \n',time,dt);
         fprintf(' iter                 = %g \n',iter);
-        fprintf(' max(|temp-temp_old|) = %g \n',DeltaTemp_max);
-        fprintf(' max(|x_k-x_k_old|)   = %g \n',Deltax_k_max);
-        fprintf(' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max);
-        fprintf(' max(|pres-pres_old|) = %g \n',DeltaPres_max);
+        fprintf(' max(|temp-temp_old|) = %g \n',DeltaTemp_max_dt);
+        fprintf(' max(|x_k-x_k_old|)   = %g \n',Deltax_k_max_dt );
+        fprintf(' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max_dt );
+        fprintf(' max(|pres-pres_old|) = %g \n',DeltaPres_max_dt);
     end        
     if( ( flag_iter == 1 ) & ( iter >= 50 ) )
         fprintf(' *** WARNING *** \n');
         fprintf(' flag_iter = %g \n', flag_iter);
         fprintf(' iter                 = %g \n',iter);
         fprintf(' time, dt             = %g %g \n',time,dt);
-        fprintf(' max(|temp-temp_old|) = %g \n',DeltaTemp_max);
-        fprintf(' max(|x_k-x_k_old|)   = %g \n',Deltax_k_max);
-        fprintf(' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max);
-        fprintf(' max(|pres-pres_old|) = %g \n',DeltaPres_max);
+        fprintf(' max(|temp-temp_old|) = %g \n',DeltaTemp_max_dt);
+        fprintf(' max(|x_k-x_k_old|)   = %g \n',Deltax_k_max_dt );
+        fprintf(' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max_dt );
+        fprintf(' max(|pres-pres_old|) = %g \n',DeltaPres_max_dt);
     end
     if( ( flag_iter == 1 ) & ( iter > 1 ) )
         fprintf(fid,' *** WARNING *** \n');
         fprintf(fid,' flag_iter = %g \n', flag_iter);
         fprintf(fid,' iter                 = %g \n',iter);
         fprintf(fid,' time, dt             = %g %g \n',time,dt);
-        fprintf(fid,' max(|temp-temp_old|) = %g \n',DeltaTemp_max);
-        fprintf(fid,' max(|x_k-x_k_old|)   = %g \n',Deltax_k_max);
-        fprintf(fid,' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max);
-        fprintf(fid,' max(|pres-pres_old|) = %g \n',DeltaPres_max);
+        fprintf(fid,' max(|temp-temp_old|) = %g \n',DeltaTemp_max_dt);
+        fprintf(fid,' max(|x_k-x_k_old|)   = %g \n',Deltax_k_max_dt );
+        fprintf(fid,' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max_dt );
+        fprintf(fid,' max(|pres-pres_old|) = %g \n',DeltaPres_max_dt);
     end
  
     % Update computational grid (in case of volume change)
@@ -681,17 +645,24 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     end
     
     % Remeshing, step 3: interpolate solution on new computational grid
-    temp_old = temp;
-    x_ws_old = x_ws;
-    x_ds_old = x_ds;
-    x_c_old  = x_c;
-    x_a_old  = x_a;
-    Y_O2_old = Y_O2;
-    pres_old = pres;
-    
-    [temp, x_ws, x_ds, x_c, x_a, Y_O2, pres] = interpolateOnNewMesh( ...
+    temp_old   = temp;
+    x_ws_old   = x_ws;
+    x_ds_old   = x_ds;
+    x_c_old    = x_c;
+    x_a_old    = x_a;
+    Y_O2_old   = Y_O2;
+    pres_old   = pres;
+    sum_R1_old = sum_R1;
+    sum_R2_old = sum_R2;
+    sum_R3_old = sum_R3;
+    sum_R4_old = sum_R4;
+   
+   [temp, x_ws, x_ds, x_c, x_a, Y_O2, pres, ...
+          sum_R1, sum_R2, sum_R3, sum_R4]=interpolateOnNewMesh( ...
               nx_new, xCenter, volume, dV, nx_old, xCenter_old, dV_old, ...
-       temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, Y_O2_old, pres_old);
+    temp_old, x_ws_old, x_ds_old, x_c_old, x_a_old, Y_O2_old, pres_old, ...
+                        sum_R1_old, sum_R2_old, sum_R3_old, sum_R4_old);
+   
     temp = temp';
     x_ws = x_ws';
     x_ds = x_ds';
@@ -744,7 +715,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         nu_g     = nu_g0*(T_g/300)^(1.76);       % Kin. visc. at gas temp.
         nu_s     = nu_g0*(temp_surf_old/300)^(1.76); % Visc. at surf. temp.
         rho_g    = pres_g*MW_g/R/T_g;
-        rho_surf = pres_g*MW_g/R/temp_surf;
+        rho_surf = pres_g*MW_g/R/temp_surf_old;
         mu_g     = rho_g*nu_g;
         mu_s     = rho_surf*nu_s;
         Re_D     = u_g*D_eff/nu_g; % Calculated at gas temperature
@@ -757,10 +728,6 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     end
     h_conv = Nu_D*k_g/D_eff;   % Convective heat transfer coef. [W/m2/K]
     
-    %%AT [q_surf, temp_surf] = particle_surface(temp_surf_old, ...
-    %%AT                       keff_surf, eps_surf, dx_surf, tempc_nx, h_conv);
-    
-    %%AT
     % Calculate the surface heat flux
     h_rad     = eps_surf*sigma*(temp_surf_newiter^3);
     Bi        = (h_conv+h_rad)*dx_surf/keff_surf;
@@ -769,7 +736,6 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
                     + (h_conv*T_g+eps_surf*G)*dx_surf/keff_surf )/(1+Bi);
     q_surf    = eps_surf*G - eps_surf*sigma*temp_surf^4 ...
               + h_conv*(T_g-temp_surf);
-    %%AT
     
     % Calculate the surface oxygen mass flux
     psi          = psi_sg(nx_new);
@@ -785,20 +751,27 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     mdot_surf    = h_mass*(Y_g_O2-Y_O2_surf);
     
     % Save data
-    if(mod(n,i_output)==0)
+    if(mod(n,i_output)==0)            
         % Calculate the mass loss rate 
         %  - Mass loss rate per unit volume [kg/s/m3]
         for i=1:nx_new
             psi   = psi_sg(i);
-            Y_O2s = max(Y_O2(i),0);
-            K_R1  = ( max(0,rho_ws*x_ws(i)*(1-psi))^n_R1 ) ...
-                    *A_R1*exp(-Ta_R1/temp(i));
-            K_R2  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R2 ) ...
-                    *A_R2*exp(-Ta_R2/temp(i));
-            K_R3  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R3 ) ...
-                    *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp(i));
-            K_R4  = ( max(0,rho_c *x_c(i) *(1-psi))^n_R4 ) ...
-                    *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp(i));
+            Y_O2s = max(Y_O2(i),0);        
+
+            K_R1 = ( max(0,rho_ws*x_ws(i)*(1-psi)*dV(i))^n_R1 ) ...
+                   *sum_R1(i)^(1-n_R1) ...
+                   *A_R1*exp(-Ta_R1/temp(i)) /dV(i);
+            K_R2 = ( max(0,rho_ds*x_ds(i)*(1-psi)*dV(i))^n_R2 ) ...
+                   *sum_R2(i)^(1-n_R2) ...
+                   *A_R2*exp(-Ta_R2/temp(i)) /dV(i);
+            K_R3 = ( max(0,rho_ds*x_ds(i)*(1-psi)*dV(i))^n_R3 ) ...
+                   *sum_R3(i)^(1-n_R3) ...
+                   *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
+                   *A_R3*exp(-Ta_R3/temp(i)) /dV(i);
+            K_R4 = ( max(0,rho_c *x_c(i) *(1-psi)*dV(i))^n_R4 ) ...
+                   *sum_R4(i)^(1-n_R4) ...
+                   *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
+                   *A_R4*exp(-Ta_R4/min(temp(i),700)) /dV(i);
       
             MLRPUV(i) = (1-eta_ds_R1)*K_R1  + (1-eta_c_R2) *K_R2 ...
                       + (1-eta_c_R3) *K_R3  + (1-eta_a_R4) *K_R4;
@@ -807,6 +780,11 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
                       + (1-eta_c_R2) *K_R2*DeltaH_R2 ...
                       + (1-eta_c_R3) *K_R3*DeltaH_R3 ...
                       + (1-eta_a_R4) *K_R4*DeltaH_R4;
+                  
+            RR1_save(i,n_output) = K_R1;
+            RR2_save(i,n_output) = K_R2;
+            RR3_save(i,n_output) = K_R3;
+            RR4_save(i,n_output) = K_R4;
         end
         
         mdotPUA(1) = 0;
@@ -866,10 +844,10 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
             MLRtot_new = MLRtot_new*2 ; % We solve for half of the particle
         end
         
-        DeltaQ_max_save(1,n_output) = DeltaTemp_max;
-        DeltaQ_max_save(2,n_output) = Deltax_k_max;
-        DeltaQ_max_save(3,n_output) = DeltaYO2_max;
-        DeltaQ_max_save(4,n_output) = DeltaPres_max;
+        DeltaQ_max_save(1,n_output) = DeltaTemp_max_dt;
+        DeltaQ_max_save(2,n_output) = Deltax_k_max_dt;
+        DeltaQ_max_save(3,n_output) = DeltaYO2_max_dt;
+        DeltaQ_max_save(4,n_output) = DeltaPres_max_dt;
          
         MLR_save(n_output)       = MLRtot_new;
         q_surf_save(n_output)    = q_surf;
@@ -895,24 +873,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         MFLUXG_save(1:nx_new,n_output) = mdotPUA(1:nx_new);
         VELG_save(1:nx_new,n_output)   = vel(1:nx_new);
         Qdot_save(1:nx_new,n_output)   = HRRPUV(1:nx_new);
-         
-        for i=1:nx_new
-            psi   = psi_sg(i);
-            Y_O2s = max(Y_O2(i),0);
-            K_R1  = ( max(0,rho_ws*x_ws(i)*(1-psi))^n_R1 ) ...
-                    *A_R1*exp(-Ta_R1/temp(i));
-            K_R2  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R2 ) ...
-                    *A_R2*exp(-Ta_R2/temp(i));
-            K_R3  = ( max(0,rho_ds*x_ds(i)*(1-psi))^n_R3 ) ...
-                    *( Y_O2s^n_O2_R3 )*A_R3*exp(-Ta_R3/temp(i));
-            K_R4  = ( max(0,rho_c *x_c(i) *(1-psi))^n_R4 ) ...
-                    *( Y_O2s^n_O2_R4 )*A_R4*exp(-Ta_R4/temp(i));
-                    
-            RR1_save(i,n_output) = K_R1;
-            RR2_save(i,n_output) = K_R2;
-            RR3_save(i,n_output) = K_R3;
-            RR4_save(i,n_output) = K_R4;   
-        end
+        
         [RR1_peak_save(n_output),i1] = max(RR1_save(:,n_output));
         xRR1_peak_save(n_output)     = xCenter(i1);
         [RR2_peak_save(n_output),i2] = max(RR2_save(:,n_output));
