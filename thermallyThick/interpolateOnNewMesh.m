@@ -7,7 +7,7 @@ function [temp, x_ws, x_ds, x_c, x_a, Y_O2, pres, ...
 
 global pres_g cp_g0 MW_g R ...
        rho_ws rho_ds rho_c rho_a ...
-       c_ws c_ds c_c c_a ...
+       c0_ws c0_ds c0_c c0_a nc_ws nc_ds nc_c nc_a ...
        psi_ws psi_ds psi_c psi_a
 
 
@@ -25,6 +25,10 @@ for i=1:nx_old
     % Product of mass density times specific heat
     %  - Porous medium treatment:
     %    rhocp_eff = (1-psi) x rhocp_s + psi x rho_g x cp_g
+    c_ws      = c0_ws*(temp_old(i)/300)^nc_ws;
+    c_ds      = c0_ds*(temp_old(i)/300)^nc_ds;
+    c_c       = c0_c *(temp_old(i)/300)^nc_c;
+    c_a       = c0_a *(temp_old(i)/300)^nc_a;
     rhocp_s   = rho_ws*c_ws*x_ws_old(i) + rho_ds*c_ds*x_ds_old(i) ...
               + rho_c*c_c*x_c_old(i) ...
               + rho_a*c_a*x_a_old(i);   % (rho*cp) in solid phase
@@ -121,6 +125,10 @@ for i=1:nx_new
     % Product of mass density times specific heat
     %  - Porous medium treatment:
     %    rhocp_eff = (1-psi) x rhocp_s + psi x rho_g x cp_g
+    c_ws      = c0_ws*(temp_old(i)/300)^nc_ws;
+    c_ds      = c0_ds*(temp_old(i)/300)^nc_ds;
+    c_c       = c0_c *(temp_old(i)/300)^nc_c;
+    c_a       = c0_a *(temp_old(i)/300)^nc_a;
     rhocp_s   = rho_ws*c_ws*x_ws(i) + rho_ds*c_ds*x_ds(i) ...
               + rho_c*c_c*x_c(i) ...
               + rho_a*c_a*x_a(i);   % (rho*cp) in solid phase
@@ -728,6 +736,10 @@ for i=1:nx_new
     % Product of mass density times specific heat
     %  - Porous medium treatment:
     %    rhocp_eff = (1-psi) x rhocp_s + psi x rho_g x cp_g
+    c_ws      = c0_ws*(temp_old(i)/300)^nc_ws;
+    c_ds      = c0_ds*(temp_old(i)/300)^nc_ds;
+    c_c       = c0_c *(temp_old(i)/300)^nc_c;
+    c_a       = c0_a *(temp_old(i)/300)^nc_a;
     rhocp_s   = rho_ws*c_ws*x_ws(i) + rho_ds*c_ds*x_ds(i) ...
               + rho_c*c_c*x_c(i) ...
               + rho_a*c_a*x_a(i);   % (rho*cp) in solid phase
@@ -838,6 +850,10 @@ for i=1:nx_new
     % Product of mass density times specific heat
     %  - Porous medium treatment:
     %    rhocp_eff = (1-psi) x rhocp_s + psi x rho_g x cp_g
+    c_ws      = c0_ws*(temp_old(i)/300)^nc_ws;
+    c_ds      = c0_ds*(temp_old(i)/300)^nc_ds;
+    c_c       = c0_c *(temp_old(i)/300)^nc_c;
+    c_a       = c0_a *(temp_old(i)/300)^nc_a;
     rhocp_s   = rho_ws*c_ws*x_ws(i) + rho_ds*c_ds*x_ds(i) ...
               + rho_c*c_c*x_c(i) ...
               + rho_a*c_a*x_a(i);   % (rho*cp) in solid phase

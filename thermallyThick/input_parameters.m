@@ -2,8 +2,9 @@ function [ T_end, geometry, delta_i, A_rectangle, L_cylinder, ...
            T_g, u_g, G, Y_g_O2, pres_g, k_g0, cp_g0, nu_g0, Pr, MW_g, ...          
            temp_i, x_ws_i, x_ds_i, x_c_i, x_a_i, Y_O2_i, pres_i, ...
            rho_ws, rho_ds, rho_c, rho_a, ...
-           k_ws, k_ds, k_c, k_a, ...
-           c_ws, c_ds, c_c,c_a, ...
+           k0_ws, k0_ds, k0_c, k0_a, nk_ws, nk_ds, nk_c, nk_a, ...
+           gamma_ws, gamma_ds, gamma_c, gamma_a, ...
+           c0_ws, c0_ds, c0_c, c0_a, nc_ws, nc_ds, nc_c, nc_a, ...
            eps_ws, eps_ds, eps_c, eps_a, ...
            psi_ws, psi_ds, psi_c, psi_a, ...
            Kperm_ws, Kperm_ds, Kperm_c, Kperm_a, ...
@@ -42,6 +43,7 @@ cp_g0  = 1100;    % Heat capacity (at constant pressure) in air
 nu_g0  = 1.6d-5;  % Kinematic viscosity in air at normal temp./pres. [m2/s]
 Pr     = 0.7;     % Prandtl number [-]
 MW_g   = 0.029;   % Molecular weight [kg/mole]
+%%AT MW_g   = 0.100;   % Molecular weight [kg/mole]
 
 % Initial conditions inside the particle (t = 0)
 temp_i = 300;     % Initial temperature [K] (solid/gas phases)
@@ -52,7 +54,8 @@ x_a_i  = 0.0;     % Initial volume fraction of ash [-] (solid phase)
 Y_O2_i = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
 pres_i = 0;       % Initial gauge pressure [Pa] (gas phase)
 
-%  - Source: Novozhilov et al. (1996) Fire Safety J. 27:69-84
+%  - Source: Lautenberger & Fernandez-Pello (2009)
+%            Combust. Flame 156:1503-1513
 rho_ws = 390;     % Mass density of wet solid [kg/m3]
                   % NB: at constant volume and porosity in reaction (R1),
                   %     rho_ws = rho_ds*(1+FMC) or FMC = (rho_ws/rho_ds)-1
@@ -62,15 +65,28 @@ rho_c  = 390;     % Mass density of char [kg/m3]
                   %     eta_c_R2 = (rho_c/rho_ds)
 rho_a  = 390;     % Mass density of ash [kg/m3]
 
-k_ws   = 0.186;   % Conductivity of wet solid [W/m/K]
-k_ds   = 0.176;   % Conductivity of dry solid [W/m/K]
-k_c    = 0.065;   % Conductivity of char [W/m/K]
-k_a    = 0.058;   % Conductivity of ash [W/m/K]
+k0_ws  = 0.186;   % Conductivity of wet solid (at 300 K) [W/m/K]
+k0_ds  = 0.176;   % Conductivity of dry solid (at 300 K) [W/m/K]
+k0_c   = 0.065;   % Conductivity of char (at 300 K) [W/m/K]
+k0_a   = 0.058;   % Conductivity of ash  (at 300 K) [W/m/K]
+nk_ws  = 0.185;   % Temperature exponent of conductivity of wet solid
+nk_ds  = 0.594;   % Temperature exponent of conductivity of dry solid
+nk_c   = 0.435;   % Temperature exponent of conductivity of char
+nk_a   = 0.353;   % Temperature exponent of conductivity of ash
 
-c_ws   = 1764;    % Heat capacity of wet solid [J/kg/K]
-c_ds   = 1664;    % Heat capacity of dry solid [J/kg/K]
-c_c    = 1219;    % Heat capacity of char [J/kg/K]
-c_a    = 1244;    % Heat capacity of ash [J/kg/K]
+gamma_ws = 0;      % Effective radiation conductivity of wet solid [m]
+gamma_ds = 0;      % Effective radiation conductivity of dry solid [m]
+gamma_c  = 3.3e-3; % Effective radiation conductivity of char [m]
+gamma_a  = 6.4e-3; % Effective radiation conductivity of ash [m]
+
+c0_ws  = 1764;    % Heat capacity of wet solid [J/kg/K]
+c0_ds  = 1664;    % Heat capacity of dry solid [J/kg/K]
+c0_c   = 1219;    % Heat capacity of char [J/kg/K]
+c0_a   = 1244;    % Heat capacity of ash [J/kg/K]
+nc_ws  = 0.406;   % Temperature exponent of heat capacity of wet solid
+nc_ds  = 0.660;   % Temperature exponent of heat capacity of dry solid
+nc_c   = 0.283;   % Temperature exponent of heat capacity of char
+nc_a   = 0.315;   % Temperature exponent of heat capacity of ash
 
 eps_ws = 0.757;   % Surface emissivity of wet solid [-]
 eps_ds = 0.759;   % Surface emissivity of dry solid [-]
@@ -92,7 +108,8 @@ R     = 8.3145;    % Ideal gas constant [J/K/mol]
 sigma = 5.67e-8;   % Stefan-Boltzmann constant [W/m2/K4]
 
 % Moisture evaporation model (reaction R1)
-%  - Source: Shen et al. (2007) Fire Safety J. 42:210-217
+%  - Source: Lautenberger & Fernandez-Pello (2009)
+%            Combust. Flame 156:1503-1513
 A_R1      = 4.29e+3;    % Pre-exponential factor [1/s]
 E_R1      = 43.8e+3;    % Activation energy [J/mol]
 Ta_R1     = E_R1/R;     % Activation temperature [K]
@@ -103,7 +120,8 @@ eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
                         %     eta_ds_R1 = 1/(1+FMC) = (rho_ds/rho_ws)
 
 % Thermal pyrolysis model (reaction R2)
-%  - Source: Novozhilov et al. (1996) Fire Safety J. 27:69-84
+%  - Source: Lautenberger & Fernandez-Pello (2009)
+%            Combust. Flame 156:1503-1513
 A_R2      = 3.29e+9;    % Pre-exponential factor [1/s]
 E_R2      = 135e+3;     % Activation energy [J/mol]
 Ta_R2     = E_R2/R;     % Activation temperature [K]
@@ -114,8 +132,8 @@ eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
                         %     eta_c_R2 = (rho_c/rho_ds)
 
 % Oxidative pyrolysis model (reaction R3)
-%  - Source: Lautenberger & Fernandez-Pello (2009) Combust. Flame
-%            156:1503-1513
+%  - Source: Lautenberger & Fernandez-Pello (2009)
+%            Combust. Flame 156:1503-1513
 A_R3      = 6.00e+9;    % Pre-exponential factor [1/s]
 E_R3      = 124.2e+3;   % Activation energy [J/mol]
 Ta_R3     = E_R3/R;     % Activation temperature [K]
@@ -126,8 +144,8 @@ eta_c_R3  = (73/361);   % Mass yield of char in reaction (R3) [-]
 eta_O2_R3 = 0.1*(1-eta_c_R3); % Oxygen-to-dry-solid mass ratio in (R3) [-]
 
 % Char oxidation model (reaction R4)
-%  - Source: Lautenberger & Fernandez-Pello (2009) Combust. Flame
-%            156:1503-1513
+%  - Source: Lautenberger & Fernandez-Pello (2009)
+%            Combust. Flame 156:1503-1513
 A_R4      = 9.79e+13;   % Pre-exponential factor [1/s]
 E_R4      = 192.4e+3;   % Activation energy [J/mol]
 Ta_R4     = E_R4/R;     % Activation temperature [K]
@@ -158,8 +176,11 @@ eta_O2_R3 = 0.1*(1-eta_c_R3);
 eta_a_R4  = (rho_a/rho_c)  *(1-psi_a) /(1-psi_c);
 eta_O2_R4 = 2.0*(1-eta_a_R4);
 
-T_end = 600;
-u_g    = 0.1;     % Flow velocity [m/s]
+delta_i = 3.8e-2;
+T_end   = 600;
+u_g     = 0.0;     % Flow velocity [m/s]
+G       = 40e+3;   % Averaged irradiation [W/m2]
+MW_g    = 0.029;   % Molecular weight [kg/mole]
 %%AT G      = 20e+3;   % Averaged irradiation [W/m2]
 %AT Y_g_O2 = 0.000;   % Oxygen mass fraction [-]
 %AT Y_O2_i = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
