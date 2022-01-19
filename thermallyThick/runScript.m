@@ -60,6 +60,9 @@ dt_i = timeStep(rho_ws, rho_ds, rho_c, rho_a, ...
                 A_R3, Ta_R3, n_O2_R3, ...
                 A_R4, Ta_R4, n_O2_R4, ...
                 Y_g_O2, nu_g0, MW_g, R, dx_i);
+%%AT
+dt_i = min(dt_i,1e-3);
+%%AT
 %n_f = round(T_end/dt_i);   % Total number of time steps
 n_f = round(T_end/0.01);   % Total number of time steps
 fprintf(' n_f = %g \n',n_f);
@@ -174,6 +177,7 @@ xRR1_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R1
 xRR2_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R2
 xRR3_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R3
 xRR4_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R4
+h_conv_save     = h_conv   *ones(round(n_f/i_output),1); % Heat tran. coef.
 
 XCells_save =         ones(nx_i,round(n_f/i_output));  % Coord. cell ctrs.
 TEMP_save   = temp_i *ones(nx_i,round(n_f/i_output));  % Solid temperature
@@ -198,19 +202,19 @@ VELG_save   =         zeros(nx_i,round(n_f/i_output)); % Gas velocity
 [xRight, xCenter, xLeft1, dV] = mesh(nx_i, dx);
 
 % Arrays needed in exressions of R1-R2-R3-R4 reaction rates
-sum_R1_i = rho_ws*x_ws_i*(1-psi_i);
+sum_R1_i = rho_ws*(1-psi_ws)*x_ws_i;
 sum_R1   = sum_R1_i.*dV;   % Array containing integral term in R1-RR
 sum_R1   = max(sum_R1, 1e-14);
 
-sum_R2_i = rho_ds*x_ds_i*(1-psi_i);
+sum_R2_i = rho_ds*(1-psi_ds)*x_ds_i;
 sum_R2   = sum_R2_i.*dV;   % Array containing integral term in R2-RR
 sum_R2   = max(sum_R2, 1e-14);
 
-sum_R3_i = rho_ds*x_ds_i*(1-psi_i);
+sum_R3_i = rho_ds*(1-psi_ds)*x_ds_i;
 sum_R3   = sum_R3_i.*dV;   % Array containing integral term in R3-RR
 sum_R3   = max(sum_R3, 1e-14);
 
-sum_R4_i = rho_c*x_c_i*(1-psi_i);
+sum_R4_i = rho_c*(1-psi_c)*x_c_i;
 sum_R4   = sum_R4_i.*dV;   % Array containing integral term in R4-RR
 sum_R4   = max(sum_R4, 1e-14);
 
@@ -256,37 +260,34 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     
     temp_surf_old = temp_surf;
     
-    for i=1:nx_old
-        psi_new = psi_ws*x_ws_old(i) + psi_ds*x_ds_old(i) ...
-                + psi_c * x_c_old(i) + psi_a * x_a_old(i);          
+    for i=1:nx_old         
         Y_O2s   = max(Y_O2_old(i),0);
         
         K_R1 = ...
-           ( max(0,rho_ws*x_ws_old(i)*(1-psi_new)*dV_old(i))^n_R1 ) ...
+           ( max(0,rho_ws*(1-psi_ws)*x_ws_old(i)*dV_old(i))^n_R1 ) ...
               *sum_R1(i)^(1-n_R1) ...
               *A_R1*exp(-Ta_R1/temp_old(i));
         K_R2 = ...
-           ( max(0,rho_ds*x_ds_old(i)*(1-psi_new)*dV_old(i))^n_R2 ) ...
+           ( max(0,rho_ds*(1-psi_ds)*x_ds_old(i)*dV_old(i))^n_R2 ) ...
               *sum_R2(i)^(1-n_R2) ...
               *A_R2*exp(-Ta_R2/temp_old(i));
         K_R3 = ...
-           ( max(0,rho_ds*x_ds_old(i)*(1-psi_new)*dV_old(i))^n_R3 ) ...
+           ( max(0,rho_ds*(1-psi_ds)*x_ds_old(i)*dV_old(i))^n_R3 ) ...
                  *sum_R3(i)^(1-n_R3) ...
                  *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
                  *A_R3*exp(-Ta_R3/temp_old(i));
         %{
         K_R4 = ...
-           ( max(0,rho_c *x_c_old(i) *(1-psi_new)*dV_old(i))^n_R4 ) ...
+           ( max(0,rho_c*(1-psi_c)*x_c_old(i)*dV_old(i))^n_R4 ) ...
               *sum_R4(i)^(1-n_R4) ...
               *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
               *A_R4*exp(-Ta_R4/min(temp_old(i),700));
         %}
 
         sum_R1(i) = sum_R1(i);
-        sum_R2(i) = sum_R2(i) + dt * eta_ds_R1*K_R1*dV_old(i);
-        sum_R3(i) = sum_R3(i) + dt * eta_ds_R1*K_R1*dV_old(i);
-        sum_R4(i) = sum_R4(i) + dt ...
-                                 * (eta_c_R2*K_R2+eta_c_R3*K_R3)*dV_old(i);
+        sum_R2(i) = sum_R2(i) + dt * eta_ds_R1*K_R1;
+        sum_R3(i) = sum_R3(i) + dt * eta_ds_R1*K_R1;
+        sum_R4(i) = sum_R4(i) + dt * (eta_c_R2*K_R2+eta_c_R3*K_R3);
     end
     
     % Solution at new time step (t = time)
@@ -427,8 +428,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         flag_iter = 1;
     end
     
-    %%AT if( ( A_R3 == 0 ) && ( A_R4 == 0 ) )   % (R1)-(R2) reaction model
-    if( 1 == 0 ) % Uncomment this line to force calc. of Y_O2 & pres
+    if( ( A_R3 == 0 ) && ( A_R4 == 0 ) )   % (R1)-(R2) reaction model
+    %%AT if( 1 == 0 ) % Uncomment this line to force calc. of Y_O2 & pres
         Y_O2_newiter       = Y_O2_old;
         pres_newiter       = pres_old;
         DeltaYO2_max_iter  = 0;
@@ -508,12 +509,14 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         % *** End calculation of Y_O2 and pres ***
     end
     
+    %%AT
     if( ( DeltaTemp_max_iter <= (0.01*DeltaTemp_max_dt/lambda) ) & ...
         ( Deltax_k_max_iter  <= (0.01*Threshold_xk) )            & ...
         ( DeltaYO2_max_iter  <= (0.01*DeltaYO2_max_dt /lambda) ) & ...
         ( DeltaPres_max_iter <= (0.01*Threshold_pres) ) )
         break;
     end
+    %%AT
     if(iter==1000)
         fprintf(' Problem in iterative loop: break at time %g \n',time);
         fprintf(' \n');
@@ -680,10 +683,16 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     % End remeshing
     
     for i=1:nx_new
-        rho_s(i)  = rho_ws*x_ws(i) + rho_ds*x_ds(i) ...
-                  + rho_c *x_c(i)  + rho_a *x_a(i);
         psi_sg(i) = psi_ws*x_ws(i) + psi_ds*x_ds(i) ...
                   + psi_c *x_c(i)  + psi_a *x_a(i);
+        if( (1-psi_sg(i)) > 0 )
+            rho_s(i) = ( rho_ws*(1-psi_ws)*x_ws(i) ...
+                       + rho_ds*(1-psi_ds)*x_ds(i) ...
+                       + rho_c *(1-psi_c) *x_c(i)  ...
+                       + rho_a *(1-psi_a) *x_a(i) )/(1-psi_sg(i));
+        else
+            rho_s(i) = rho_a;
+        end
     end
      
     % Calculate the net surface heat flux and the surface temperature
@@ -692,7 +701,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     psi       = psi_sg(nx_new);
     % Effective thermal conductivity
     %  - Porous medium treatment: 
-    %    keff = (1-psi) x k_s + psi x k_g
+    %    keff = k_s + psi x k_g
     k_ws      = k0_ws*(temp(nx_new)/300)^nk_ws;
     k_ds      = k0_ds*(temp(nx_new)/300)^nk_ds;
     k_c       = k0_c *(temp(nx_new)/300)^nk_c;
@@ -704,9 +713,9 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     k_rad     = gamma*sigma*temp(nx_new)^3; 
     k_s       = k_s + k_rad;
     k_g       = k_g0*(temp(nx_new)/300)^(0.76);    % Conduct. in gas phase
-    keff_surf = (1-psi)*k_s + psi*k_g;
+    keff_surf = k_s + psi*k_g;
     eps_surf  = eps_ws*x_ws(nx_new) + eps_ds*x_ds(nx_new) ...
-              + eps_c*x_c(nx_new) + eps_a*x_a(nx_new);
+              + eps_c *x_c(nx_new)  + eps_a *x_a(nx_new);
     dx_surf   = xRight(nx_new)-xCenter(nx_new);
     tempc_nx  = temp(nx_new);
     
@@ -751,6 +760,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
           + Kperm_c *x_c(nx_new)  + Kperm_a *x_a(nx_new);
     % Gas kinematic viscosity
     nu_g  = nu_g0*(temp(nx_new)/300)^(1.76);
+
     if( pres(nx_new-1) > pres(nx_new) )
         % Case for which mdotPUA > 0
         mdotPUA_surf = (Kperm/nu_g) ...
@@ -790,42 +800,43 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         % Calculate the mass loss rate 
         %  - Mass loss rate per unit volume [kg/s/m3]
         for i=1:nx_new
-            psi   = psi_sg(i);
             Y_O2s = max(Y_O2(i),0);        
-
-            K_R1 = ( max(0,rho_ws*x_ws(i)*(1-psi)*dV(i))^n_R1 ) ...
+        
+            K_R1 = ( max(0,rho_ws*(1-psi_ws)*x_ws(i)*dV(i))^n_R1 ) ...
                    *sum_R1(i)^(1-n_R1) ...
-                   *A_R1*exp(-Ta_R1/temp(i)) /dV(i);
-            K_R2 = ( max(0,rho_ds*x_ds(i)*(1-psi)*dV(i))^n_R2 ) ...
+                   *A_R1*exp(-Ta_R1/temp(i));
+            K_R2 = ( max(0,rho_ds*(1-psi_ds)*x_ds(i)*dV(i))^n_R2 ) ...
                    *sum_R2(i)^(1-n_R2) ...
-                   *A_R2*exp(-Ta_R2/temp(i)) /dV(i);
-            K_R3 = ( max(0,rho_ds*x_ds(i)*(1-psi)*dV(i))^n_R3 ) ...
+                   *A_R2*exp(-Ta_R2/temp(i));
+            K_R3 = ( max(0,rho_ds*(1-psi_ds)*x_ds(i)*dV(i))^n_R3 ) ...
                    *sum_R3(i)^(1-n_R3) ...
                    *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
-                   *A_R3*exp(-Ta_R3/temp(i)) /dV(i);
-            K_R4 = ( max(0,rho_c *x_c(i) *(1-psi)*dV(i))^n_R4 ) ...
+                   *A_R3*exp(-Ta_R3/temp(i));
+            K_R4 = ( max(0,rho_c*(1-psi_c)*x_c(i)*dV(i))^n_R4 ) ...
                    *sum_R4(i)^(1-n_R4) ...
                    *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
-                   *A_R4*exp(-Ta_R4/min(temp(i),700)) /dV(i);
+                   *A_R4*exp(-Ta_R4/min(temp(i),700));
       
-            MLRPUV(i) = (1-eta_ds_R1)*K_R1  + (1-eta_c_R2) *K_R2 ...
-                      + (1-eta_c_R3) *K_R3  + (1-eta_a_R4) *K_R4;
+            MLRPUV(i) = (1-eta_ds_R1)*K_R1/dV(i) ...
+                      + (1-eta_c_R2) *K_R2/dV(i) ...
+                      + (1-eta_c_R3) *K_R3/dV(i) ...
+                      + (1-eta_a_R4) *K_R4/dV(i);
 
-            HRRPUV(i) = (1-eta_ds_R1)*K_R1*DeltaH_R1 ...
-                      + (1-eta_c_R2) *K_R2*DeltaH_R2 ...
-                      + (1-eta_c_R3) *K_R3*DeltaH_R3 ...
-                      + (1-eta_a_R4) *K_R4*DeltaH_R4;
+            HRRPUV(i) = (1-eta_ds_R1)*K_R1*DeltaH_R1/dV(i) ...
+                      + (1-eta_c_R2) *K_R2*DeltaH_R2/dV(i) ...
+                      + (1-eta_c_R3) *K_R3*DeltaH_R3/dV(i) ...
+                      + (1-eta_a_R4) *K_R4*DeltaH_R4/dV(i);
                   
-            RR1_save(i,n_output) = K_R1;
-            RR2_save(i,n_output) = K_R2;
-            RR3_save(i,n_output) = K_R3;
-            RR4_save(i,n_output) = K_R4;
+            RR1_save(i,n_output) = K_R1/dV(i);
+            RR2_save(i,n_output) = K_R2/dV(i);
+            RR3_save(i,n_output) = K_R3/dV(i);
+            RR4_save(i,n_output) = K_R4/dV(i);
         end
         
         mdotPUA(1) = 0;
         % Permeability
         Kperm = Kperm_ws*x_ws(1) + Kperm_ds*x_ds(1) ...
-              + Kperm_c*x_c(1) + Kperm_a*x_a(1);
+              + Kperm_c *x_c(1)  + Kperm_a *x_a(1);
         % Gas kinematic viscosity
         nu_g  = nu_g0*(temp(1)/300)^(1.76);
         if (pres(1) < pres(2))
@@ -836,10 +847,9 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         for i=2:(nx_new-1)
             % Permeability
             Kperm = Kperm_ws*x_ws(i) + Kperm_ds*x_ds(i) ...
-                  + Kperm_c*x_c(i) + Kperm_a*x_a(i);   
+                  + Kperm_c *x_c(i)  + Kperm_a* x_a(i);   
             % Gas kinematic viscosity
-            nu_g  = nu_g0*(temp(i)/300)^(1.76);
-            
+            nu_g  = nu_g0*(temp(i)/300)^(1.76);          
             if( (pres(i-1) > pres(i)) & (pres(i) > pres(i+1)) )
                 % Case fhor which mdotPUA > 0
                 mdotPUA(i) = (Kperm/nu_g) ...
@@ -856,7 +866,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         mdotPUA(nx_new) = 0;
         % Permeability
         Kperm = Kperm_ws*x_ws(nx_new) + Kperm_ds*x_ds(nx_new) ...
-              + Kperm_c*x_c(nx_new) + Kperm_a*x_a(nx_new);
+              + Kperm_c *x_c(nx_new)  + Kperm_a *x_a(nx_new);
         % Gas kinematic viscosity
         nu_g  = nu_g0*(temp(nx_new)/300)^(1.76);
         if( pres(nx_new-1) > pres(nx_new) )
@@ -917,6 +927,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         xRR3_peak_save(n_output)     = xCenter(i3);
         [RR4_peak_save(n_output),i4] = max(RR4_save(:,n_output));
         xRR4_peak_save(n_output)     = xCenter(i4);
+        
+        h_conv_save(n_output)        = h_conv;
     end
     
     % Burnout criterion
@@ -976,6 +988,8 @@ end
 fclose(fid); 
 
 %% Output data
+csvwrite("time.csv",            time_save(1:n_output));
+csvwrite("MLR.csv",             MLR_save(1:n_output));
 %{
 csvwrite("number_cells.csv",    nx_save(1:n_output));
 csvwrite("time.csv",            time_save(1:n_output));
@@ -994,6 +1008,7 @@ csvwrite("xRR1_peak.csv",       xRR1_peak_save(1:n_output));
 csvwrite("xRR2_peak.csv",       xRR2_peak_save(1:n_output));
 csvwrite("xRR3_peak.csv",       xRR3_peak_save(1:n_output));
 csvwrite("xRR4_peak.csv",       xRR4_peak_save(1:n_output));
+csvwrite("h_conv_surf.csv",     h_conv_save(1:n_output));
 
 csvwrite("cell_center.csv",     XCells_save(:,1:n_output));
 csvwrite("Temp.csv",            TEMP_save(:,1:n_output));
@@ -1136,9 +1151,15 @@ plot(time_save(1:n_output),xRR4_peak_save(1:n_output)','--or');
 xlabel('Time (s)');
 ylabel('Location of peak value of reaction rate (m)');
 
+figure(11); % Convective heat transfer coefficient [W/m2/K]
+hold on;
+plot(time_save(1:n_output),h_conv_save(1:n_output));
+xlabel('Time (s)');
+ylabel('Convective heat transfer coefficient (W/m2/K)');
+
 % - Spatial profiles
 
-figure(11);   % Temperature
+figure(21);   % Temperature
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),TEMP_save(1:nx_save(n),n));
     hold on
@@ -1146,7 +1167,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Temperature (K)');
 
-figure(12);   % Solid mass density (ms/Vs)
+figure(22);   % Solid mass density (ms/Vs)
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),RHOS_save(1:nx_save(n),n));
     hold on
@@ -1154,7 +1175,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Solid mass density (kg/m3)');
 
-figure(13);   % Porosity
+figure(23);   % Porosity
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),PSI_save(1:nx_save(n),n));
     hold on
@@ -1162,7 +1183,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Porosity');
 
-figure(14);   % Volume fraction of wet solid
+figure(24);   % Volume fraction of wet solid
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),XWS_save(1:nx_save(n),n));
     hold on
@@ -1170,7 +1191,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Volume fraction of wet solid');
 
-figure(15);   % Volume fraction of dry solid
+figure(25);   % Volume fraction of dry solid
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),XDS_save(1:nx_save(n),n));
     hold on
@@ -1178,7 +1199,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Volume fraction of dry solid');
 
-figure(16);   % Volume fraction of char
+figure(26);   % Volume fraction of char
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),XC_save(1:nx_save(n),n));
     hold on
@@ -1186,7 +1207,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Volume fraction of char');
 
-figure(17);   % Volume fraction of ash
+figure(27);   % Volume fraction of ash
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),XA_save(1:nx_save(n),n));
     hold on
@@ -1194,7 +1215,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Volume fraction of ash');
 
-figure(18);   % Check
+figure(28);   % Check
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n), (1 ...
         -XWS_save(1:nx_save(n),n)-XDS_save(1:nx_save(n),n) ...
@@ -1204,7 +1225,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('1-Sumxk (Check)');
 
-figure(19);   % Mass reaction rate for moisture evaporation reaction R1
+figure(29);   % Mass reaction rate for moisture evaporation reaction R1
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),RR1_save(1:nx_save(n),n));
     hold on
@@ -1212,7 +1233,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('RR1 (kg/s/m3)');
 
-figure(20);   % Mass reaction rate for thermal pyrolysis reaction R2
+figure(30);   % Mass reaction rate for thermal pyrolysis reaction R2
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),RR2_save(1:nx_save(n),n));
     hold on
@@ -1220,7 +1241,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('RR2 (kg/s/m3)');
 
-figure(21);   % Mass reaction rate for oxidative pyrolysis reaction R3
+figure(31);   % Mass reaction rate for oxidative pyrolysis reaction R3
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),RR3_save(1:nx_save(n),n));
     hold on
@@ -1228,7 +1249,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('RR3 (kg/s/m3)');
 
-figure(22);   % Mass reaction rate for char oxidation reaction R4
+figure(32);   % Mass reaction rate for char oxidation reaction R4
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),RR4_save(1:nx_save(n),n));
     hold on
@@ -1236,7 +1257,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('RR4 (kg/s/m3)');
 
-figure(23);   % Mass fraction of gaseous oxygen
+figure(33);   % Mass fraction of gaseous oxygen
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),YO2G_save(1:nx_save(n),n));
     hold on
@@ -1244,7 +1265,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Mass fraction of gaseous oxygen');
 
-figure(24);   % Gauge pressure
+figure(34);   % Gauge pressure
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),PRESG_save(1:nx_save(n),n));
     hold on
@@ -1252,7 +1273,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Gauge pressure (Pa)');
 
-figure(25);   % Volumetric mass loss rate
+figure(35);   % Volumetric mass loss rate
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),MLRPUV_save(1:nx_save(n),n));
     hold on
@@ -1260,7 +1281,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('MLRPUV (kg/s/m3)');
 
-figure(26);   % Volumetric HRR
+figure(36);   % Volumetric HRR
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),Qdot_save(1:nx_save(n),n));
     hold on
@@ -1268,7 +1289,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('HRRPUV (kg/s/m3)');
 
-figure(27);   % Gas Mass Flux
+figure(37);   % Gas Mass Flux
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),MFLUXG_save(1:nx_save(n),n));
     hold on
@@ -1276,7 +1297,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Mass Flux (kg/s/m2)');
 
-figure(28);   % Gas Velocity
+figure(38);   % Gas Velocity
 for n=1:n_output
     plot(XCells_save(1:nx_save(n),n),VELG_save(1:nx_save(n),n));
     hold on

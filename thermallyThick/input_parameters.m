@@ -43,7 +43,6 @@ cp_g0  = 1100;    % Heat capacity (at constant pressure) in air
 nu_g0  = 1.6d-5;  % Kinematic viscosity in air at normal temp./pres. [m2/s]
 Pr     = 0.7;     % Prandtl number [-]
 MW_g   = 0.029;   % Molecular weight [kg/mole]
-%%AT MW_g   = 0.100;   % Molecular weight [kg/mole]
 
 % Initial conditions inside the particle (t = 0)
 temp_i = 300;     % Initial temperature [K] (solid/gas phases)
@@ -57,12 +56,10 @@ pres_i = 0;       % Initial gauge pressure [Pa] (gas phase)
 %  - Source: Lautenberger & Fernandez-Pello (2009)
 %            Combust. Flame 156:1503-1513
 rho_ws = 390;     % Mass density of wet solid [kg/m3]
-                  % NB: at constant volume and porosity in reaction (R1),
-                  %     rho_ws = rho_ds*(1+FMC) or FMC = (rho_ws/rho_ds)-1
+                  % NB: at constant volume in reaction (R1),
+                  %     rho_ws*(1-psi_ws) = rho_ds*(1-psi_ds)*(1+FMC)
 rho_ds = 390;     % Mass density of dry solid [kg/m3]
 rho_c  = 390;     % Mass density of char [kg/m3]
-                  % NB: at constant volume and porosity in reaction (R2),
-                  %     eta_c_R2 = (rho_c/rho_ds)
 rho_a  = 390;     % Mass density of ash [kg/m3]
 
 k0_ws  = 0.186;   % Conductivity of wet solid (at 300 K) [W/m/K]
@@ -116,8 +113,8 @@ Ta_R1     = E_R1/R;     % Activation temperature [K]
 n_R1      = 0.99;       % Solid-phase reactant exponent [-]
 DeltaH_R1 =-2410e+3;    % Heat of evaporation [J/kg] (< 0, endothermic)
 eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
-                        % NB: at constant volume/porosity in reaction (R1),
-                        %     eta_ds_R1 = 1/(1+FMC) = (rho_ds/rho_ws)
+                        % NB: at constant volume in reaction (R1),
+                        %   eta_ds_R1 = rho_ds*(1-psi_ds)/rho_ws/(1-psi_ws)
 
 % Thermal pyrolysis model (reaction R2)
 %  - Source: Lautenberger & Fernandez-Pello (2009)
@@ -128,8 +125,8 @@ Ta_R2     = E_R2/R;     % Activation temperature [K]
 n_R2      = 4.78;       % Solid-phase reactant exponent [-]
 DeltaH_R2 =-533e+3;     % Heat of pyrolysis [J/kg] (< 0, endothermic)
 eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
-                        % NB: at constant volume and porosity in (R2),
-                        %     eta_c_R2 = (rho_c/rho_ds)
+                        % NB: at constant volume in reaction (R2),
+                        %     eta_c_R2 = rho_c*(1-psi_c)/rho_ds/(1-psi_ds)
 
 % Oxidative pyrolysis model (reaction R3)
 %  - Source: Lautenberger & Fernandez-Pello (2009)
@@ -141,6 +138,8 @@ n_R3      = 4.99;       % Solid-phase reactant exponent [-]
 n_O2_R3   = 1.16;       % Gas-phase oxygen exponent [-]
 DeltaH_R3 =+994e+3;     % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_c_R3  = (73/361);   % Mass yield of char in reaction (R3) [-]
+                        % NB: at constant volume in reaction (R3),
+                        %     eta_c_R3 = rho_c*(1-psi_c)/rho_ds/(1-psi_ds)
 eta_O2_R3 = 0.1*(1-eta_c_R3); % Oxygen-to-dry-solid mass ratio in (R3) [-]
 
 % Char oxidation model (reaction R4)
@@ -153,34 +152,18 @@ n_R4      = 1.86;       % Solid-phase reactant exponent [-]
 n_O2_R4   = 1.04;       % Gas-phase oxygen exponent [-]
 DeltaH_R4 =+37700e+3;   % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
+                        % NB: at constant volume in reaction (R4),
+                        %     eta_a_R4 = rho_a*(1-psi_a)/rho_c/(1-psi_c)
 eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
 
 
 %%AT
 %%{
-%{
-psi_ws = 0.0167; % Porosity of the particle when pure wet solid [-]
-psi_ds = 0.05;   % Porosity of the particle when pure solid [-]
-psi_c  = 0.15;   % Porosity of the particle when pure char [-]
-psi_a  = 0.45;   % Porosity of the particle when pure ash [-]
-%}
-psi_ws = 1-(380/390); % Porosity of the particle when pure wet solid [-]
-psi_ds = 1-(361/390); % Porosity of the particle when pure solid [-]
-psi_c  = 0.5;
-psi_a  = 0.7;
-
-eta_ds_R1 = (rho_ds/rho_ws)*(1-psi_ds)/(1-psi_ws);
-eta_c_R2  = (rho_c /rho_ds)*(1-psi_c) /(1-psi_ds);
-eta_c_R3  = (rho_c /rho_ds)*(1-psi_c) /(1-psi_ds);
-eta_O2_R3 = 0.1*(1-eta_c_R3);
-eta_a_R4  = (rho_a/rho_c)  *(1-psi_a) /(1-psi_c);
-eta_O2_R4 = 2.0*(1-eta_a_R4);
-
 delta_i = 3.8e-2;
 T_end   = 600;
 u_g     = 0.0;     % Flow velocity [m/s]
 G       = 40e+3;   % Averaged irradiation [W/m2]
-MW_g    = 0.029;   % Molecular weight [kg/mole]
+
 %%AT G      = 20e+3;   % Averaged irradiation [W/m2]
 %AT Y_g_O2 = 0.000;   % Oxygen mass fraction [-]
 %AT Y_O2_i = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
