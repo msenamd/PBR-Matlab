@@ -65,7 +65,8 @@ if(IFilter == 1)
            ( max(0,rho_c *(1-psi_c) *x_c_olditer(i) *dV_old(i))^n_R4 ) ...
               *sum_R4(i)^(1-n_R4) ...
               *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
-              *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
+              *A_R4*exp(-Ta_R4/temp_olditer(i));
+              %%AT *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
     end
 
     for n = 1:nFilter
@@ -122,7 +123,8 @@ for i = 1:nx_old
            ( max(0,rho_c *(1-psi_c) *x_c_olditer(i) *dV_old(i))^n_R4 ) ...
               *sum_R4(i)^(1-n_R4) ...
               *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
-              *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
+              *A_R4*exp(-Ta_R4/temp_olditer(i));
+              %%AT *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
     end
     %%AT
          
@@ -139,26 +141,23 @@ c(i) = -0.5*(xstore1(i+1)+xstore1(i)) ...
            *S_pos(i)/(xCenter(i+1)-xCenter(i));
 b(i) = -c(i);
 d(i) = dRR(i);
-%%AT
+
 % Apply under-relaxation in iterative scheme
 b(i) = b(i) + lambda;
 d(i) = d(i) + lambda*pres_olditer(i);
-%%AT
      
 % i = nx_old (exposed surface)
 i       = nx_old;
 a(i)    = -0.5*(xstore1(i)+xstore1(i-1)) ...
               *S_neg(i)/(xCenter(i)-xCenter(i-1));   
 dx_surf = xRight(nx_old)-xCenter(nx_old);
-c(i)    = -xstore1(i) *S_pos(i)/dx_surf;
-b(i)    = -a(i)-c(i);
-d(i)    = -c(i)*0 + dRR(i);
+b(i)    = -a(i)+xstore1(i) *S_pos(i)/dx_surf;
 c(i)    = 0;
-%%AT
+d(i)    = (xstore1(i) *S_pos(i)/dx_surf)*0 + dRR(i);
+
 % Apply under-relaxation in iterative scheme
 b(i) = b(i) + lambda;
 d(i) = d(i) + lambda*pres_olditer(i);
-%%AT
 
 % 2 <= i <= (nx_old-1) (interior nodes)
 for i = 2:(nx_old-1)    
@@ -168,11 +167,10 @@ for i = 2:(nx_old-1)
                *S_pos(i)/(xCenter(i+1)-xCenter(i));
     b(i) = -a(i)-c(i);
     d(i) = dRR(i);
-    %%AT
+
     % Apply under-relaxation in iterative scheme
     b(i) = b(i) + lambda;
     d(i) = d(i) + lambda*pres_olditer(i);
-    %%AT
 end
             
 end
