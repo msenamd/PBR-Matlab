@@ -60,20 +60,19 @@ dt_i = timeStep(rho_ws, rho_ds, rho_c, rho_a, ...
                 A_R3, Ta_R3, n_O2_R3, ...
                 A_R4, Ta_R4, n_O2_R4, ...
                 Y_g_O2, nu_g0, MW_g, R, dx_i);
-%%AT
+
 dt_i = min(dt_i,1e-3);
-%%AT
+
 %n_f = round(T_end/dt_i);   % Total number of time steps
-n_f = round(T_end/0.01);   % Total number of time steps
+n_f = round(1000000);   % Total number of time steps (TBC)
 fprintf(' n_f = %g \n',n_f);
 fprintf(' \n');
 pause;
 
 % Parameter that controls the frequency at which quantities are saved
 % to output files
-%%AT i_output  = 50;
-i_output  = 500;
-%%AT
+i_output  = 50;
+%%AT i_output  = 500;
 
 % Parameters that control the time step and solution accuracy
 %%AT Threshold_Temp = 1.0;    % Max. value of temp variation during dt [K]
@@ -274,14 +273,15 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         K_R3 = ...
            ( max(0,rho_ds*(1-psi_ds)*x_ds_old(i)*dV_old(i))^n_R3 ) ...
                  *sum_R3(i)^(1-n_R3) ...
-                 *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
+                 *( (Y_O2s/0.226)^n_O2_R3 ) ...
                  *A_R3*exp(-Ta_R3/temp_old(i));
         %{
         K_R4 = ...
            ( max(0,rho_c*(1-psi_c)*x_c_old(i)*dV_old(i))^n_R4 ) ...
               *sum_R4(i)^(1-n_R4) ...
-              *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
-              *A_R4*exp(-Ta_R4/min(temp_old(i),700));
+              *( (Y_O2s/0.226)^n_O2_R4 ) ...
+              *A_R4*exp(-Ta_R4/temp_old(i));
+              %%AT *A_R4*exp(-Ta_R4/min(temp_old(i),700));
         %}
 
         sum_R1(i) = sum_R1(i);
@@ -509,14 +509,14 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         % *** End calculation of Y_O2 and pres ***
     end
     
-    %%AT
+    % Convergence criteria
     if( ( DeltaTemp_max_iter <= (0.01*DeltaTemp_max_dt/lambda) ) & ...
         ( Deltax_k_max_iter  <= (0.01*Threshold_xk) )            & ...
         ( DeltaYO2_max_iter  <= (0.01*DeltaYO2_max_dt /lambda) ) & ...
         ( DeltaPres_max_iter <= (0.01*Threshold_pres) ) )
         break;
     end
-    %%AT
+
     if(iter==1000)
         fprintf(' Problem in iterative loop: break at time %g \n',time);
         fprintf(' \n');
@@ -810,12 +810,13 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
                    *A_R2*exp(-Ta_R2/temp(i));
             K_R3 = ( max(0,rho_ds*(1-psi_ds)*x_ds(i)*dV(i))^n_R3 ) ...
                    *sum_R3(i)^(1-n_R3) ...
-                   *( (1+Y_O2s)^n_O2_R3 - 1 ) ...
+                   *( (Y_O2s/0.226)^n_O2_R3 ) ...
                    *A_R3*exp(-Ta_R3/temp(i));
             K_R4 = ( max(0,rho_c*(1-psi_c)*x_c(i)*dV(i))^n_R4 ) ...
                    *sum_R4(i)^(1-n_R4) ...
-                   *( (1+Y_O2s)^n_O2_R4 - 1 ) ...
-                   *A_R4*exp(-Ta_R4/min(temp(i),700));
+                   *( (Y_O2s/0.226)^n_O2_R4 ) ...
+                   *A_R4*exp(-Ta_R4/temp(i));
+                   %%AT *A_R4*exp(-Ta_R4/min(temp(i),700));
       
             MLRPUV(i) = (1-eta_ds_R1)*K_R1/dV(i) ...
                       + (1-eta_c_R2) *K_R2/dV(i) ...
@@ -988,9 +989,9 @@ end
 fclose(fid); 
 
 %% Output data
+%{
 csvwrite("time.csv",            time_save(1:n_output));
 csvwrite("MLR.csv",             MLR_save(1:n_output));
-%{
 csvwrite("number_cells.csv",    nx_save(1:n_output));
 csvwrite("time.csv",            time_save(1:n_output));
 csvwrite("MLR.csv",             MLR_save(1:n_output));
