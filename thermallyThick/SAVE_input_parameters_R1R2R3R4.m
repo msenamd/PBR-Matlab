@@ -120,18 +120,10 @@ eta_ds_R1 = (361/380);  % Mass yield of dry solid in reaction (R1) [-]
 % Thermal pyrolysis model (reaction R2)
 %  - Source: Lautenberger & Fernandez-Pello (2009)
 %            Combust. Flame 156:1503-1513
-%  - Source: Anca-Couce, Zobel, Berger, Behrendt (2012)
-%            Combust. Flame 159:1708–1719
-% L&F-P A_R2      = 3.29e+9;    % Pre-exponential factor [1/s]
-% L&F-P E_R2      = 135e+3;     % Activation energy [J/mol]
-% L&F-P Ta_R2     = E_R2/R;     % Activation temperature [K]
-% L&F-P n_R2      = 4.78;       % Solid-phase reactant exponent [-]
-% (A-C et al.)
-A_R2      = 10^6.34;    % Pre-exponential factor [1/s]
-E_R2      = 105e+3;     % Activation energy [J/mol]
+A_R2      = 3.29e+9;    % Pre-exponential factor [1/s]
+E_R2      = 135e+3;     % Activation energy [J/mol]
 Ta_R2     = E_R2/R;     % Activation temperature [K]
-n_R2      = 0.87;       % Solid-phase reactant exponent [-]
-% (L&F-P)
+n_R2      = 4.78;       % Solid-phase reactant exponent [-]
 DeltaH_R2 =-533e+3;     % Heat of pyrolysis [J/kg] (< 0, endothermic)
 eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
                         % NB: at constant volume in reaction (R2),
@@ -140,20 +132,11 @@ eta_c_R2  = (73/361);   % Mass yield of char in reaction (R2) [-]
 % Oxidative pyrolysis model (reaction R3)
 %  - Source: Lautenberger & Fernandez-Pello (2009)
 %            Combust. Flame 156:1503-1513
-%  - Source: Anca-Couce, Zobel, Berger, Behrendt (2012)
-%            Combust. Flame 159:1708–1719
-% L&F-P A_R3      = 6.00e+9;    % Pre-exponential factor [1/s]
-% L&F-P E_R3      = 124.2e+3;   % Activation energy [J/mol]
-% L&F-P Ta_R3     = E_R3/R;     % Activation temperature [K]
-% L&F-P n_R3      = 4.99;       % Solid-phase reactant exponent [-]
-% L&F-P n_O2_R3   = 1.16;       % Gas-phase oxygen exponent [-]
-% (A-C et al.)
-A_R3      = 10^8.72;    % Pre-exponential factor [1/s]
-E_R3      = 127e+3;     % Activation energy [J/mol]
+A_R3      = 6.00e+9;    % Pre-exponential factor [1/s]
+E_R3      = 124.2e+3;   % Activation energy [J/mol]
 Ta_R3     = E_R3/R;     % Activation temperature [K]
-n_R3      = 0.63;       % Solid-phase reactant exponent [-]
-n_O2_R3   = 0.72;       % Gas-phase oxygen exponent [-]
-% (L&F-P)
+n_R3      = 4.99;       % Solid-phase reactant exponent [-]
+n_O2_R3   = 1.16;       % Gas-phase oxygen exponent [-]
 DeltaH_R3 =+994e+3;     % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_c_R3  = (73/361);   % Mass yield of char in reaction (R3) [-]
                         % NB: at constant volume in reaction (R3),
@@ -163,19 +146,11 @@ eta_O2_R3 = 0.1*(1-eta_c_R3); % Oxygen-to-dry-solid mass ratio in (R3) [-]
 % Char oxidation model (reaction R4)
 %  - Source: Lautenberger & Fernandez-Pello (2009)
 %            Combust. Flame 156:1503-1513
-%  - Source: Anca-Couce, Zobel, Berger, Behrendt (2012)
-%            Combust. Flame 159:1708–1719
-% L&F-P A_R4      = 9.79e+13;   % Pre-exponential factor [1/s]
-% L&F-P E_R4      = 192.4e+3;   % Activation energy [J/mol]
-% L&F-P Ta_R4     = E_R4/R;     % Activation temperature [K]
-% L&F-P n_R4      = 1.86;       % Solid-phase reactant exponent [-]
-% L&F-P n_O2_R4   = 1.04;       % Gas-phase oxygen exponent [-]
-A_R4      = 10^6.55;    % Pre-exponential factor [1/s]
-E_R4      = 124e+3;     % Activation energy [J/mol]
+A_R4      = 9.79e+13;   % Pre-exponential factor [1/s]
+E_R4      = 192.4e+3;   % Activation energy [J/mol]
 Ta_R4     = E_R4/R;     % Activation temperature [K]
-n_R4      = 0.56;       % Solid-phase reactant exponent [-]
-n_O2_R4   = 0.68;       % Gas-phase oxygen exponent [-]
-% (L&F-P)
+n_R4      = 1.86;       % Solid-phase reactant exponent [-]
+n_O2_R4   = 1.04;       % Gas-phase oxygen exponent [-]
 DeltaH_R4 =+37700e+3;   % Heat of pyrolysis [J/kg] (> 0, exothermic)
 eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
                         % NB: at constant volume in reaction (R4),
@@ -186,43 +161,15 @@ eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
 %%AT
 %%{
 %AT T_end   = 600;
-geometry = "cylinder";
-T_end   = 600;
-delta_i = 5e-3;
+%AT delta_i = 1.25e-2;
 %AT G       = 20e+3;   % Averaged irradiation [W/m2]
-%AT G       = 50e+3;   % Averaged irradiation [W/m2]
-%AT G       = 100e+3;  % Averaged irradiation [W/m2]
-x_g_O2  = 0.21;    % Oxygen mole fraction [-]
+%AT G       = 25e+3;   % Averaged irradiation [W/m2]
+%AT G       = 40e+3;   % Averaged irradiation [W/m2]
+%AT x_g_O2  = 0.21;    % Oxygen mole fraction [-]
 %AT x_g_O2  = 0.105;   % Oxygen mole fraction [-]
 %AT x_g_O2  = 0.0;     % Oxygen mole fraction [-]
-Y_g_O2  = x_g_O2*32/(x_g_O2*32+(1-x_g_O2)*28); % O2 mass fraction [-]
-Y_O2_i  = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
-%AT u_g     = 0.0;     % Flow velocity [m/s]
-%AT u_g     = 1.0;     % Flow velocity [m/s]
-%AT u_g     = 10.0;    % Flow velocity [m/s]
-T_g       = 300;
-FMC       = 0.05;
-eta_ds_R1 = 1/(1+FMC);
-psi_ws    = 1-(380/390);
-% Constant volume: eta_ds_R1 = rho_ds*(1-psi_ds)/rho_ws/(1-psi_ws)
-psi_ds    = 1 - eta_ds_R1*(1-psi_ws);
-% Constant volume: eta_c_R2 = rho_c*(1-psi_c)/rho_ds/(1-psi_ds)
-% Constant volume: eta_c_R3 = rho_c*(1-psi_c)/rho_ds/(1-psi_ds)
-psi_c     = 1 - eta_c_R2*(1-psi_ds);
-% Constant volume: eta_a_R4 = rho_a(1-psi_a)/rho_c/(1-psi_c)
-psi_a     = 1 - eta_a_R4*(1-psi_c);
-
-% PBR_Case_tf=120_d=10_G=30_ug=0
-%T_end   = 300;
-%delta_i = 0.5e-3;   % d = 1 mm
-T_end   = 900;
-delta_i = 5e-3;   % d = 10 mm
-G       = 30e+3;
-u_g     = 0;
-
-
-%AT A_R3      = 0;
-%AT A_R4      = 0;
+%AT Y_g_O2  = x_g_O2*32/(x_g_O2*32+(1-x_g_O2)*28); % O2 mass fraction [-]
+%AT Y_O2_i  = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
 %}
 %%AT
 

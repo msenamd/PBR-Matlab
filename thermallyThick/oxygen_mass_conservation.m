@@ -29,7 +29,7 @@ global geometry A_rectangle L_cylinder ...
        A_R2 Ta_R2 n_R2 eta_c_R2 ...
        A_R3 Ta_R3 n_R3 n_O2_R3 eta_c_R3 eta_O2_R3 ...
        A_R4 Ta_R4 n_R4 n_O2_R4 eta_a_R4 eta_O2_R4 ...
-       IFilter nFilter
+       IFilter nFilter Tmax_R4
 
    
 % Calculation of surface areas of cell boundary faces
@@ -71,8 +71,8 @@ if(IFilter == 1)
            ( max(0,rho_c *(1-psi_c) *x_c_olditer(i) *dV_old(i))^n_R4 ) ...
               *sum_R4(i)^(1-n_R4) ...
               *( (Y_O2s/0.226)^n_O2_R4 ) ...
-              *A_R4*exp(-Ta_R4/temp_olditer(i));
-              %%AT *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
+              *A_R4*exp(-Ta_R4/min(temp_olditer(i),Tmax_R4));
+              %%AT *A_R4*exp(-Ta_R4/temp_olditer(i));
     end
 
     for n = 1:nFilter
@@ -141,15 +141,17 @@ for i = 1:nx_old
            ( max(0,rho_c *(1-psi_c) *x_c_olditer(i) *dV_old(i))^n_R4 ) ...
               *sum_R4(i)^(1-n_R4) ...
               *( (Y_O2s/0.226)^n_O2_R4 ) ...
-              *A_R4*exp(-Ta_R4/temp_olditer(i));
-              %%AT *A_R4*exp(-Ta_R4/min(temp_olditer(i),700));
+              *A_R4*exp(-Ta_R4/min(temp_olditer(i),Tmax_R4));
+              %%AT *A_R4*exp(-Ta_R4/temp_olditer(i));
     end
     %%AT
 
     % Assume n_O2_R3 >= 1 and n_O2_R4 >=1
     if( abs(Y_O2s) > 0 )
-        K_R3b = K_R3/max(Y_O2s,1e-14);
-        K_R4b = K_R4/max(Y_O2s,1e-14);
+        %AT K_R3b = K_R3/max(Y_O2s,1e-14);
+        K_R3b = K_R3/Y_O2s;
+        %AT K_R4b = K_R4/max(Y_O2s,1e-14);
+        K_R4b = K_R4/Y_O2s;
     else
         K_R3b = 0;
         K_R4b = 0;

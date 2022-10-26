@@ -17,7 +17,7 @@ global geometry A_rectangle L_cylinder ...
        A_R2 Ta_R2 n_R2 DeltaH_R2 eta_c_R2 ...
        A_R3 Ta_R3 n_R3 n_O2_R3 DeltaH_R3 eta_c_R3 eta_O2_R3 ...
        A_R4 Ta_R4 n_R4 n_O2_R4 DeltaH_R4 eta_a_R4 eta_O2_R4 ...
-       dx_i IFilter nFilter
+       dx_i IFilter nFilter Tmax_R4
 
 
 % Read input parameters
@@ -41,7 +41,10 @@ global geometry A_rectangle L_cylinder ...
 % NOTE: delta_i = Initial half-thickness (geometry = "rectangle") or
 %                 initial radius (geometry = "cylinder" or "sphere")
 %       Select spatial resolution ~ 100 microns
-dx0  = 100e-6;               % Spatial resolution [m]
+%AT dx0  = 100e-6;               % Spatial resolution [m]
+%AT dx0  = 50e-6;
+%AT dx0  = 25e-6;
+dx0  = 10e-6;
 nx_i = round(delta_i/dx0);   % Initial number of grid cells
 dx_i = delta_i/nx_i;              % Initial grid cell size
 fprintf(' dx_i = %g \n',dx_i);
@@ -62,6 +65,7 @@ dt_i = timeStep(rho_ws, rho_ds, rho_c, rho_a, ...
                 Y_g_O2, nu_g0, MW_g, R, dx_i);
 
 dt_i = min(dt_i,1e-3);
+G_i  = G;
 
 %n_f = round(T_end/dt_i);   % Total number of time steps
 n_f = round(1000000);   % Total number of time steps (TBC)
@@ -71,7 +75,8 @@ pause;
 
 % Parameter that controls the frequency at which quantities are saved
 % to output files
-i_output  = 50;
+%%AT i_output  = 50;
+i_output  = 100;
 %%AT i_output  = 500;
 
 % Parameters that control the time step and solution accuracy
@@ -84,11 +89,16 @@ Threshold_pres = 0.1;    % Max. value of pres variation during dt [Pa]
 lambda         = 0.1;    % Under-relaxation parameter for temp & Y_O2 [-]
 lambda_xk      = 0.0;    % Under-relaxation parameter for x_k [-]
 lambda_pres    = 0.0;    % Under-relaxation parameter for pressure [-]
-dt_max         = 0.1;    % Max. value of dt [s]
+%AT dt_max         = 0.1;    % Max. value of dt [s]
+dt_max         = 0.01;    % Max. value of dt [s]
+dt_max_i       = dt_max;
 
 % Parameters that control filtering of reaction rates for R3 and R4
 IFilter = 0; % IFilter =  1 to activate filtering
 nFilter = 0; % nFilter >= 1 to activate filtering
+%AT
+Tmax_R4 = 2000; % Control of RR4
+%AT
 
 % Set Initial conditions (t = 0)
 n         = 0;
@@ -131,7 +141,7 @@ else
 end
 h_conv   = Nu_D*k_g/D_eff;   % Convective heat transfer coef. [W/m2/K]
 %%AT
-h_conv   = 10; % Model of Lautenberger & Fernandez-Pello (2009)
+%%AT h_conv   = 10; % Model of Lautenberger & Fernandez-Pello (2009)
 %%AT
 
 q_surf_i = eps_ws*G - eps_ws*sigma*temp_surf^4 ...
@@ -143,6 +153,15 @@ rho_s_i = rho_ws*x_ws_i + rho_ds*x_ds_i + rho_c*x_c_i + rho_a*x_a_i;
 
 % Porosity (t = 0)
 psi_i   = psi_ws*x_ws_i + psi_ds*x_ds_i + psi_c*x_c_i + psi_a*x_a_i;
+
+% Initial mass of wet solid (t = 0) [kg]
+if geometry=="rectangle"
+    Mass_ws_i = rho_ws*(1-psi_ws)*delta_i*A_rectangle; % NB: no factor 2
+elseif geometry=="cylinder"
+    Mass_ws_i = rho_ws*(1-psi_ws)*pi*delta_i^2*L_cylinder;
+elseif geometry=="sphere"
+    Mass_ws_i = rho_ws*(1-psi_ws)*(4/3)*pi*delta_i^3;
+end
 
 dt     = dt_i;                 % Time increment
 dx     = dx_i   *ones(nx_i,1); % Array containing grid cell sizes
@@ -177,6 +196,38 @@ xRR2_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R2
 xRR3_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R3
 xRR4_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R4
 h_conv_save     = h_conv   *ones(round(n_f/i_output),1); % Heat tran. coef.
+%AT
+MLR_R1_save     =          zeros(round(n_f/i_output),1); % MLR R1-RR
+MLR_R2_save     =          zeros(round(n_f/i_output),1); % MLR R2-RR
+MLR_R3_save     =          zeros(round(n_f/i_output),1); % MLR R3-RR
+MLR_R4_save     =          zeros(round(n_f/i_output),1); % MLR R4-RR
+temp_max_save   = temp_i   *ones(round(n_f/i_output),1); % Max. TEMP
+YO2_back_save   = Y_g_O2   *ones(round(n_f/i_output),1); % Back YO2
+YO2_min_save    = Y_g_O2   *ones(round(n_f/i_output),1); % Min. YO2
+pres_surf_save  = pres_i   *ones(round(n_f/i_output),1); % Surf. pressure
+pres_back_save  = pres_i   *ones(round(n_f/i_output),1); % Back pressure
+pres_max_save   = pres_i   *ones(round(n_f/i_output),1); % Max. pressure
+MLR_surf_save   =          zeros(round(n_f/i_output),1); % Surf. MLRPUA
+vel_surf_save   =          zeros(round(n_f/i_output),1); % Surf. velocity
+vel_back_save   =          zeros(round(n_f/i_output),1); % Back velocity
+vel_max_save    =          zeros(round(n_f/i_output),1); % Max. velocity
+temp_xRR1_peak_save  = temp_i*ones(round(n_f/i_output),1); %T @peak R1 loc
+temp_xRR2_peak_save  = temp_i*ones(round(n_f/i_output),1); %T @peak R2 loc
+temp_xRR3_peak_save  = temp_i*ones(round(n_f/i_output),1); %T @peak R3 loc
+temp_xRR4_peak_save  = temp_i*ones(round(n_f/i_output),1); %T @peak R4 loc
+RR1_surf_save   =          zeros(round(n_f/i_output),1); % Surf. R1-RR
+RR1_back_save   =          zeros(round(n_f/i_output),1); % Back R1-RR
+RR2_surf_save   =          zeros(round(n_f/i_output),1); % Surf. R2-RR
+RR2_back_save   =          zeros(round(n_f/i_output),1); % Back R2-RR
+RR3_surf_save   =          zeros(round(n_f/i_output),1); % Surf. R3-RR
+RR3_back_save   =          zeros(round(n_f/i_output),1); % Back R3-RR
+RR4_surf_save   =          zeros(round(n_f/i_output),1); % Surf. R4-RR
+RR4_back_save   =          zeros(round(n_f/i_output),1); % Back R4-RR
+mass_ws_save    = Mass_ws_i*ones(round(n_f/i_output),1); % Mass of wet s.
+mass_ds_save    =          zeros(round(n_f/i_output),1); % Mass of dry s.
+mass_c_save     =          zeros(round(n_f/i_output),1); % Mass of char
+mass_a_save     =          zeros(round(n_f/i_output),1); % Mass of ash
+%AT
 
 XCells_save =         ones(nx_i,round(n_f/i_output));  % Coord. cell ctrs.
 TEMP_save   = temp_i *ones(nx_i,round(n_f/i_output));  % Solid temperature
@@ -237,6 +288,8 @@ if( A_R4 ~= 0 )   % (R1)-(R4) reaction model
     delta_f = delta_i*(eta_a_R4*eta_c_R2*eta_ds_R1*rho_ws*(1-psi_ws) ...
                       /rho_a /(1-psi_a));
 end
+
+iter_max = 0;
 
 fid = fopen('LogFile.txt','w');
 %--- Begin Time loop ---
@@ -300,6 +353,13 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         fprintf(' n_output = %g, time = %g \n', ...
                   n_output,time_save(n_output));
     end
+
+    %%AT End of flaming residence time
+    t_flaming = 120;
+    if(time >= t_flaming)
+        G = sigma*T_g^4;
+    end
+    %%AT
     
     flag_iter = 0;
     
@@ -388,7 +448,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         fprintf(' DeltaTemp_max_iter,iter = %g %g \n', ...
                   DeltaTemp_max_iter,iter);
     end
-    if (iter > 1)
+    %AT if (iter > 1)
+    if (iter >= 50)
         fprintf(fid,' Time,DeltaTemp_max_iter,iter = %g %g %g \n', ...
                       time,DeltaTemp_max_iter,iter);
         flag_iter = 1;
@@ -422,7 +483,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         fprintf(' Deltax_k_max_iter,iter  = %g %g \n', ...
                   Deltax_k_max_iter,iter);
     end
-    if (iter > 1)
+    %AT if (iter > 1)
+    if (iter >= 50)
         fprintf(fid,' Time,Deltax_k_max_iter,iter  = %g %g %g \n', ...
                       time,Deltax_k_max_iter,iter);
         flag_iter = 1;
@@ -460,6 +522,10 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     xRight, xCenter, dV_old, nx_old);
     Y_O2_newiter = tri(a,b,c,d);
     Y_O2_newiter = Y_O2_newiter';
+
+    %AT
+    Y_O2_newiter = max(0,min(1,Y_O2_newiter)); % Enforce 0 <= Y_O2 <= 1
+    %AT
         
     % Check for convergence of iterative loop
     DeltaYO2_max_iter = max( abs(Y_O2_newiter-Y_O2_olditer) );
@@ -468,7 +534,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         fprintf(' DeltaYO2_max_iter,iter  = %g %g \n', ...
                   DeltaYO2_max_iter,iter);
     end
-    if (iter > 1)
+    %AT if (iter > 1)
+    if (iter >= 50)
         fprintf(fid,' Time,DeltaYO2_max_iter,iter  = %g %g %g \n',...
                       time,DeltaYO2_max_iter,iter);
     end
@@ -501,7 +568,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         fprintf(' DeltaPres_max_iter,iter = %g %g \n', ...
                   DeltaPres_max_iter,iter);
     end
-    if (iter > 1)
+    %AT if (iter > 1)
+    if (iter >= 50)
         fprintf(fid,' Time,DeltaPres_max_iter,iter = %g %g %g \n',...
                       time,DeltaPres_max_iter,iter);
     end
@@ -540,11 +608,16 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     % Safety: (1) Limit the time step dt so that variations in temperature
     %             are less than a user-defined Threshold
     %         (2) Limit the time step dt to a maximum of 10% variations
+    %AT
+    coefmin = 0.90;
+    coefmax = 1.10;
+    %AT
     if( DeltaTemp_max_dt > 0 )
         dt_Temp = dt_old*Threshold_Temp/DeltaTemp_max_dt;  % Constraint (1)
-        dt_Temp = max(0.9*dt_old,min(1.1*dt_old,dt_Temp)); % Constraint (2)
+        dt_Temp = max(coefmin*dt_old, ...
+                             min(coefmax*dt_old,dt_Temp)); % Constraint (2)
     else
-        dt_Temp = 1.1*dt_old;
+        dt_Temp = coefmax*dt_old;
     end
 
     % Time step restriction:
@@ -554,9 +627,9 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     %         (2) Limit the time step dt to a maximum of 10% variations
     if( Deltax_k_max_dt > 0 )
         dt_xk = dt_old*Threshold_xk/Deltax_k_max_dt;     % Constraint (1)
-        dt_xk = max(0.9*dt_old,min(1.1*dt_old,dt_xk));   % Constraint (2)
+        dt_xk = max(coefmin*dt_old,min(coefmax*dt_old,dt_xk));   % Constraint (2)
     else
-        dt_xk = 1.1*dt_old;
+        dt_xk = coefmax*dt_old;
     end
      
     % Time step restriction:
@@ -566,9 +639,10 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     %         (2) Limit the time step dt to a maximum of 10% variations
     if( DeltaYO2_max_dt > 0 )
         dt_YO2 = dt_old*Threshold_YO2/DeltaYO2_max_dt;   % Constraint (1)
-        dt_YO2 = max(0.9*dt_old,min(1.1*dt_old,dt_YO2)); % Constraint (2)
+        dt_YO2 = max(coefmin*dt_old, ...
+                            min(coefmax*dt_old,dt_YO2)); % Constraint (2)
     else
-        dt_YO2 = 1.1*dt_old;
+        dt_YO2 = coefmax*dt_old;
     end
 
     % Time step restriction:
@@ -578,14 +652,17 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     %         (2) Limit the time step dt to a maximum of 10% variations
     if( DeltaPres_max_dt > 0 )
         dt_pres = dt_old*Threshold_pres/DeltaPres_max_dt;  % Constraint (1)
-        dt_pres = max(0.9*dt_old,min(1.1*dt_old,dt_pres)); % Constraint (2)
+        dt_pres = max(coefmin*dt_old, ...
+                             min(coefmax*dt_old,dt_pres)); % Constraint (2)
     else
-        dt_pres = 1.1*dt_old;
+        dt_pres = coefmax*dt_old;
     end
     
     dt = min( [ dt_Temp,dt_xk,dt_YO2,dt_pres ] );
     dt = min(dt,dt_max); % Safety: do not let dt go to very large values
     %%AT dt = dt_old; % Uncomment this line for tests with fixed dt
+
+    iter_max = max(iter,iter_max);
  
     if(mod(n,i_output)==0)
         fprintf(' time, dt             = %g %g \n',time,dt);
@@ -605,7 +682,8 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         fprintf(' max(|YO2-YO2_old|)   = %g \n',DeltaYO2_max_dt );
         fprintf(' max(|pres-pres_old|) = %g \n',DeltaPres_max_dt);
     end
-    if( ( flag_iter == 1 ) & ( iter > 1 ) )
+    %AT if( ( flag_iter == 1 ) & ( iter > 1 ) )
+    if( ( flag_iter == 1 ) & ( iter >= 50 ) )
         fprintf(fid,' *** WARNING *** \n');
         fprintf(fid,' flag_iter = %g \n', flag_iter);
         fprintf(fid,' iter                 = %g \n',iter);
@@ -752,7 +830,10 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
     end
     h_conv = Nu_D*k_g/D_eff;   % Convective heat transfer coef. [W/m2/K]
     %%AT
-    h_conv0 = 10; % Model of Lautenberger & Fernandez-Pello (2009)
+    %%{
+    %AT h_conv0 = 10; % Model of Lautenberger & Fernandez-Pello (2009)
+    h_conv0 = h_conv;
+    %AT
     
     mdotPUA_surf = 0;
     % Permeability
@@ -766,11 +847,13 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         mdotPUA_surf = (Kperm/nu_g) ...
         *(pres(nx_new-1)-pres(nx_new))/(xCenter(nx_new)-xCenter(nx_new-1));
     end
-    if(mdotPUA_surf > 0)
+    %%AT if(mdotPUA_surf > 0)
+    if(mdotPUA_surf > 1e-14)
         h_conv = mdotPUA_surf*cp_g0/( exp(mdotPUA_surf*cp_g0/h_conv0)-1 );
     else
         h_conv = h_conv0;
     end
+    %}
     %%AT
     
     % Calculate the surface heat flux
@@ -815,13 +898,20 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
             K_R4 = ( max(0,rho_c*(1-psi_c)*x_c(i)*dV(i))^n_R4 ) ...
                    *sum_R4(i)^(1-n_R4) ...
                    *( (Y_O2s/0.226)^n_O2_R4 ) ...
-                   *A_R4*exp(-Ta_R4/temp(i));
-                   %%AT *A_R4*exp(-Ta_R4/min(temp(i),700));
+                   *A_R4*exp(-Ta_R4/min(temp(i),Tmax_R4));
+                   %%AT *A_R4*exp(-Ta_R4/temp(i));
       
             MLRPUV(i) = (1-eta_ds_R1)*K_R1/dV(i) ...
                       + (1-eta_c_R2) *K_R2/dV(i) ...
                       + (1-eta_c_R3) *K_R3/dV(i) ...
                       + (1-eta_a_R4) *K_R4/dV(i);
+
+            %AT
+            MLR_R1PUV(i) = (1-eta_ds_R1)*K_R1/dV(i);
+            MLR_R2PUV(i) = (1-eta_c_R2) *K_R2/dV(i);
+            MLR_R3PUV(i) = (1-eta_c_R3) *K_R3/dV(i);
+            MLR_R4PUV(i) = (1-eta_a_R4) *K_R4/dV(i);
+            %AT
 
             HRRPUV(i) = (1-eta_ds_R1)*K_R1*DeltaH_R1/dV(i) ...
                       + (1-eta_c_R2) *K_R2*DeltaH_R2/dV(i) ...
@@ -887,8 +977,27 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
             MLRtot_new = MLRtot_new + MLRPUV(i)*dV(i);
         end
         if geometry=="rectangle"
-            MLRtot_new = MLRtot_new*2 ; % We solve for half of the particle
+            MLRtot_new = MLRtot_new*2; % We solve for half of the particle
         end
+
+        %AT
+        MLR_R1tot_new = 0;
+        MLR_R2tot_new = 0;
+        MLR_R3tot_new = 0;
+        MLR_R4tot_new = 0;
+        for i=1:nx_new
+            MLR_R1tot_new = MLR_R1tot_new + MLR_R1PUV(i)*dV(i);
+            MLR_R2tot_new = MLR_R2tot_new + MLR_R2PUV(i)*dV(i);
+            MLR_R3tot_new = MLR_R3tot_new + MLR_R3PUV(i)*dV(i);
+            MLR_R4tot_new = MLR_R4tot_new + MLR_R4PUV(i)*dV(i);
+        end
+        if geometry=="rectangle"
+            MLR_R1tot_new = MLR_R1tot_new*2;
+            MLR_R2tot_new = MLR_R2tot_new*2;
+            MLR_R3tot_new = MLR_R3tot_new*2;
+            MLR_R4tot_new = MLR_R4tot_new*2;
+        end
+        %AT
         
         DeltaQ_max_save(1,n_output) = DeltaTemp_max_dt;
         DeltaQ_max_save(2,n_output) = Deltax_k_max_dt;
@@ -930,6 +1039,55 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         xRR4_peak_save(n_output)     = xCenter(i4);
         
         h_conv_save(n_output)        = h_conv;
+
+        %AT
+        MLR_R1_save(n_output)    = MLR_R1tot_new;
+        MLR_R2_save(n_output)    = MLR_R2tot_new;
+        MLR_R3_save(n_output)    = MLR_R3tot_new;
+        MLR_R4_save(n_output)    = MLR_R4tot_new;
+        temp_max_save(n_output)  = max(TEMP_save(:,n_output));
+        YO2_back_save(n_output)  = YO2G_save(1,n_output);
+        YO2_min_save(n_output)   = min(YO2G_save(:,n_output));
+        pres_surf_save(n_output) = PRESG_save(nx_new,n_output);
+        pres_back_save(n_output) = PRESG_save(1,n_output);
+        pres_max_save(n_output)  = max(PRESG_save(:,n_output));
+        MLR_surf_save(n_output)  = MFLUXG_save(nx_new,n_output);
+        vel_surf_save(n_output)  = VELG_save(nx_new,n_output);
+        vel_back_save(n_output)  = VELG_save(1,n_output);
+        vel_max_save(n_output)   = max(VELG_save(:,n_output));
+        temp_xRR1_peak_save(n_output) = TEMP_save(i1,n_output);
+        temp_xRR2_peak_save(n_output) = TEMP_save(i2,n_output);
+        temp_xRR3_peak_save(n_output) = TEMP_save(i3,n_output);
+        temp_xRR4_peak_save(n_output) = TEMP_save(i4,n_output);
+        RR1_surf_save(n_output)  = RR1_save(nx_new,n_output);
+        RR1_back_save(n_output)  = RR1_save(1,n_output);
+        RR2_surf_save(n_output)  = RR2_save(nx_new,n_output);
+        RR2_back_save(n_output)  = RR2_save(1,n_output);
+        RR3_surf_save(n_output)  = RR3_save(nx_new,n_output);
+        RR3_back_save(n_output)  = RR3_save(1,n_output);
+        RR4_surf_save(n_output)  = RR4_save(nx_new,n_output);
+        RR4_back_save(n_output)  = RR4_save(1,n_output);
+        mass_ws_save(n_output) = 0;
+        for i=1:nx_new
+	        mass_ws_save(n_output) = mass_ws_save(n_output) ...
+                                   + rho_ws*(1-psi_ws)*x_ws(i)*dV(i);
+        end
+        mass_ds_save(n_output) = 0;
+        for i=1:nx_new
+	        mass_ds_save(n_output) = mass_ds_save(n_output) ...
+                                   + rho_ds*(1-psi_ds)*x_ds(i)*dV(i);
+        end
+        mass_c_save(n_output) = 0;
+        for i=1:nx_new
+	        mass_c_save(n_output) = mass_c_save(n_output) ...
+                                   + rho_c*(1-psi_c)*x_c(i)*dV(i);
+        end
+        mass_a_save(n_output) = 0;
+        for i=1:nx_new
+	        mass_a_save(n_output) = mass_a_save(n_output) ...
+                                   + rho_a*(1-psi_a)*x_a(i)*dV(i);
+        end
+        %AT
     end
     
     % Burnout criterion
@@ -967,6 +1125,14 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
             fprintf(' Thickness at burnout time = %g \n',xRight(nx_new));
             fprintf(' Thickness at burnout time = %g \n',delta_f);
         end
+        %AT if( ( eta_a_R4 ~= 0 ) && ( x_a(1) > 0.99 ) )
+        if( ( eta_a_R4 ~= 0 ) && ( x_a(1) > 0.99 ) )
+            % When close to burnout,  allow for larger time steps in order
+            % to simulate the particle cooling with larger values of dt
+            Threshold_Temp = 1;
+            dt_max         = 10*dt_max_i;
+        end
+        %AT
         if( ( eta_a_R4 ~= 0 ) && ( x_a(1) > 0.999 ) )
             % Particle has ash residue and is not shrinking to zero size
             flag_burnout  = 1;
@@ -986,7 +1152,10 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
 end
 
 %--- Enf Time loop ---
-fclose(fid); 
+fclose(fid);
+
+fprintf(' \n');
+fprintf(' iter_max = %g \n',iter_max);
 
 %% Output data
 %{
@@ -1032,6 +1201,7 @@ fprintf(' Final thickness of the particle (theory)     = %g \n', ...
 fprintf(' Final thickness of the particle (simulation) = %g \n', ...
                                                            xRight(nx_new));
 
+%{
 % Initial mass of wet solid (t = 0) [kg]
 if geometry=="rectangle"
     Mass_ws_i = rho_ws*(1-psi_ws)*2*delta_i*A_rectangle;
@@ -1040,6 +1210,7 @@ elseif geometry=="cylinder"
 elseif geometry=="sphere"
     Mass_ws_i = rho_ws*(1-psi_ws)*(4/3)*pi*delta_i^3;
 end
+%}
 
 % Total mass loss at final time
 int_MLR = 0;
@@ -1057,7 +1228,8 @@ for i=1:nx_new
 	Mass_s_f = Mass_s_f + rho_s_bulk(i)*dV(i);
 end
 if geometry=="rectangle"
-    Mass_s_f = Mass_s_f*2;
+    Mass_ws_i = Mass_ws_i*2;
+    Mass_s_f  = Mass_s_f*2;
 end
 fprintf(' \n');
 fprintf(' Total mass of volatiles released (simulation) = %g \n', ...
@@ -1070,29 +1242,51 @@ if( ( A_R3 == 0 ) && ( A_R4 == 0 ) )
     fprintf(' Total mass of volatiles released (theory) = %g \n', ...
                                                      (Mass_ws_i-Mass_s_f));
 end
-if( ( A_R3 == 0 ) && ( A_R4 ~= 0 ) )
+if( ( A_R3 ~= 0 ) && ( A_R4 ~= 0 ) )
     Mass_s_f = eta_a_R4*eta_c_R2*eta_ds_R1*Mass_ws_i;
     fprintf(' Total mass of volatiles released (theory) = %g \n', ...
                                                      (Mass_ws_i-Mass_s_f));
+end
+
+if geometry=="rectangle"
+    mass_ws_save = mass_ws_save*2;
+    mass_ds_save = mass_ds_save*2;
+    mass_c_save  = mass_c_save*2;
+    mass_a_save  = mass_a_save*2;
 end
 
 
 % Plot results
 % - Time variations of key quantities
 
-figure(1);   % Mass loss rate [kg/s/m2]
+figure(1);   % Mass loss rate [kg/s]
 hold on;
-plot(time_save(1:n_output),(MLR_save(1:n_output)));
+plot(time_save(1:n_output),MLR_save(1:n_output));
 xlabel('Time (s)');
 ylabel('MLR (kg/s)');
 
-figure(2);   % Net surface heat flux [kW/m2]
+figure(2);   % Mass [kg]
+hold on;
+plot(time_save(1:n_output),mass_ws_save(1:n_output),'--k');
+plot(time_save(1:n_output),mass_ds_save(1:n_output),'-k');
+plot(time_save(1:n_output),mass_c_save(1:n_output),'-r');
+plot(time_save(1:n_output),mass_a_save(1:n_output),'-b');
+xlabel('Time (s)');
+ylabel('Mass (kg)');
+
+fprintf(' \n');
+fprintf(' Total mass of ash at burnout time (theory) = %g \n', ...
+                                                                 Mass_s_f);
+fprintf(' Total mass of ash at final time (simulation) = %g \n', ...
+                                                    mass_a_save(n_output));
+
+figure(3);   % Net surface heat flux [kW/m2]
 hold on;
 plot(time_save(1:n_output),(q_surf_save(1:n_output)/1000));
 xlabel('Time (s)');
 ylabel('Net surface heat flux (kW/m2)');
 
-figure(3);   % Temperature at exposed surface and at center of particle [K]
+figure(4);   % Temperature at exposed surface and at center of particle [K]
 hold on;
 plot(time_save(1:n_output),temp_surf_save(1:n_output));
 hold on;
@@ -1100,25 +1294,25 @@ plot(time_save(1:n_output),temp_back_save(1:n_output));
 xlabel('Time (s)');
 ylabel('Temperatures at surface and center (K)');
 
-figure(4);   % Half-thickness or radius of particle
+figure(5);   % Half-thickness or radius of particle
 hold on;
 plot(time_save(1:n_output),delta_save(1:n_output));
 xlabel('Time (s)');
 ylabel('Half-thickness or radius (m)');
 
-figure(5);   % Time increment [s]
+figure(6);   % Time increment [s]
 hold on;
 plot(time_save(1:n_output),dt_save(1:n_output));
 xlabel('Time (s)');
 ylabel('Time increment dt (s)');
 
-figure(6);   % Number of cells [s]
+figure(7);   % Number of cells [s]
 hold on;
 plot(time_save(1:n_output),nx_save(1:n_output));
 xlabel('Time (s)');
 ylabel('Number of cells nx');
 
-figure(7);   % Max variation of Temp, x_k, Y_O2, pres
+figure(8);   % Max variation of Temp, x_k, Y_O2, pres
 hold on;
 plot(time_save(1:n_output),DeltaQ_max_save(1,1:n_output)','-r');
 plot(time_save(1:n_output),DeltaQ_max_save(2,1:n_output)','-k');
@@ -1127,14 +1321,14 @@ plot(time_save(1:n_output),DeltaQ_max_save(4,1:n_output)','--ok');
 xlabel('Time (s)');
 ylabel('Max variation during dt');
 
-figure(8); % Y_O2 at x = Delta (surface) and i = nx (center of last cell)
+figure(9); % Y_O2 at x = Delta (surface) and i = nx (center of last cell)
 hold on;
 plot(time_save(1:n_output),YO2_surf_save(1:n_output)','-r');
 plot(time_save(1:n_output),  YO2_nx_save(1:n_output)','-k');
 xlabel('Time (s)');
 ylabel('YO2');
 
-figure(9); % Peak values of R1-R2-R3-R4 reaction rates
+figure(10); % Peak values of R1-R2-R3-R4 reaction rates
 hold on;
 plot(time_save(1:n_output),RR1_peak_save(1:n_output)','-k');
 plot(time_save(1:n_output),RR2_peak_save(1:n_output)','-b');
@@ -1143,7 +1337,39 @@ plot(time_save(1:n_output),RR4_peak_save(1:n_output)','--or');
 xlabel('Time (s)');
 ylabel('Peak value of reaction rate (kg/s/m3)');
 
-figure(10); % Location of peak values of R1-R2-R3-R4 reaction rates
+figure(101); % Peak, surface and back values of R1 reaction rate
+hold on;
+plot(time_save(1:n_output),RR1_peak_save(1:n_output)','-k');
+plot(time_save(1:n_output),RR1_surf_save(1:n_output)','--r');
+plot(time_save(1:n_output),RR1_back_save(1:n_output)','--b');
+xlabel('Time (s)');
+ylabel('Peak, surf, back values of R1 reaction rate (kg/s/m3)');
+
+figure(102); % Peak, surface and back values of R2 reaction rate
+hold on;
+plot(time_save(1:n_output),RR2_peak_save(1:n_output)','-k');
+plot(time_save(1:n_output),RR2_surf_save(1:n_output)','--r');
+plot(time_save(1:n_output),RR2_back_save(1:n_output)','--b');
+xlabel('Time (s)');
+ylabel('Peak, surf, back values of R2 reaction rate (kg/s/m3)');
+
+figure(103); % Peak, surface and back values of R3 reaction rate
+hold on;
+plot(time_save(1:n_output),RR3_peak_save(1:n_output)','-k');
+plot(time_save(1:n_output),RR3_surf_save(1:n_output)','--r');
+plot(time_save(1:n_output),RR3_back_save(1:n_output)','--b');
+xlabel('Time (s)');
+ylabel('Peak, surf, back values of R3 reaction rate (kg/s/m3)');
+
+figure(104); % Peak, surface and back values of R4 reaction rate
+hold on;
+plot(time_save(1:n_output),RR4_peak_save(1:n_output)','-k');
+plot(time_save(1:n_output),RR4_surf_save(1:n_output)','--r');
+plot(time_save(1:n_output),RR4_back_save(1:n_output)','--b');
+xlabel('Time (s)');
+ylabel('Peak, surf, back values of R4 reaction rate (kg/s/m3)');
+
+figure(11); % Location of peak values of R1-R2-R3-R4 reaction rates
 hold on;
 plot(time_save(1:n_output),xRR1_peak_save(1:n_output)','-k');
 plot(time_save(1:n_output),xRR2_peak_save(1:n_output)','-b');
@@ -1152,7 +1378,7 @@ plot(time_save(1:n_output),xRR4_peak_save(1:n_output)','--or');
 xlabel('Time (s)');
 ylabel('Location of peak value of reaction rate (m)');
 
-figure(11); % Convective heat transfer coefficient [W/m2/K]
+figure(12); % Convective heat transfer coefficient [W/m2/K]
 hold on;
 plot(time_save(1:n_output),h_conv_save(1:n_output));
 xlabel('Time (s)');
@@ -1305,6 +1531,101 @@ for n=1:n_output
 end
 xlabel('Spatial distance (m)');
 ylabel('Velocity (m/s)');
+
+%{
+n=n_output
+plot(XCells_save(1:nx_save(n),n),TEMP_save(1:nx_save(n),n),'-k','LineWidth',3);
+xlabel('Spatial distance (m)','FontSize',16);
+ylabel('Temperature (K)','FontSize',16);
+
+hold on;
+plot(XCells_save(1:nx_save(n),n),XWS_save(1:nx_save(n),n),'--k','LineWidth',3);
+plot(XCells_save(1:nx_save(n),n),XDS_save(1:nx_save(n),n),'-k','LineWidth',3);
+plot(XCells_save(1:nx_save(n),n),XC_save(1:nx_save(n),n),'-r','LineWidth',3);
+plot(XCells_save(1:nx_save(n),n),XA_save(1:nx_save(n),n),'-b','LineWidth',3);
+xlabel('Spatial distance (m)','FontSize',16);
+ylabel('Volume fraction of solid species','FontSize',16);
+
+hold on;
+plot(XCells_save(1:nx_save(n),n),RR1_save(1:nx_save(n),n),'-k','LineWidth',3);
+plot(XCells_save(1:nx_save(n),n),RR2_save(1:nx_save(n),n),'-r','LineWidth',3);
+plot(XCells_save(1:nx_save(n),n),RR3_save(1:nx_save(n),n),'--r','LineWidth',3);
+plot(XCells_save(1:nx_save(n),n),RR4_save(1:nx_save(n),n),'-','Color','#D95319','LineWidth',3);
+xlabel('Spatial distance (m)','FontSize',16);
+ylabel('Mass reaction rates kg/s/m3)','FontSize',16);
+
+plot(time_save(1:n_output),(0.5*MLR_save(1:n_output)),'-k','LineWidth',3);
+xlabel('Time (s)','FontSize',16);
+ylabel('MLR (kg/s/m2)','FontSize',16);
+%}
+
+%AT
+% Save
+% ----
+FMC    = (1-eta_ds_R1)/eta_ds_R1;        % Moisture content of the particle
+x_g_O2 = (Y_g_O2/32)/( (Y_g_O2/32)+((1-Y_g_O2)/28) ); % x_O2 in ambient gas
+yy     = [ delta_i; (G_i/1000); u_g; x_g_O2; T_g; FMC ];
+
+fid = fopen('PBR_Case.txt','w');
+fprintf(fid,['%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e \n'],yy);
+
+for n=1:n_output
+    zz = [ time_save(n); MLR_save(n); ...
+                         MLR_R1_save(n); ...
+                         MLR_R2_save(n); ...
+                         MLR_R3_save(n); ...
+                         MLR_R4_save(n); ...
+                         RR1_peak_save(n); ...
+                         RR2_peak_save(n); ...
+                         RR3_peak_save(n); ...
+                         RR4_peak_save(n); ...
+                         temp_xRR1_peak_save(n); ...
+                         temp_xRR2_peak_save(n); ...
+                         temp_xRR3_peak_save(n); ...
+                         temp_xRR4_peak_save(n); ...
+                         xRR1_peak_save(n); ...
+                         xRR2_peak_save(n); ...
+                         xRR3_peak_save(n); ...
+                         xRR4_peak_save(n); ...
+                         RR1_surf_save(n); ...
+                         RR1_back_save(n); ...
+                         RR2_surf_save(n); ...
+                         RR2_back_save(n); ...
+                         RR3_surf_save(n); ...
+                         RR3_back_save(n); ...
+                         RR4_surf_save(n); ...
+                         RR4_back_save(n); ...
+                         mass_ws_save(n); ...
+                         mass_ds_save(n); ...
+                         mass_c_save(n); ...
+                         mass_a_save(n); ...
+                         (q_surf_save(n)/1000); ...
+                         h_conv_save(n); ...
+                         temp_surf_save(n); ...
+                         temp_back_save(n); ...
+                         temp_max_save(n); ...
+                         YO2_surf_save(n); ...
+                         YO2_back_save(n); ...
+                         YO2_min_save(n); ...
+                         pres_surf_save(n); ...
+                         pres_back_save(n); ...
+                         pres_max_save(n); ...
+                         MLR_surf_save(n); ...
+                         vel_surf_save(n); ...
+                         vel_back_save(n); ...
+                         vel_max_save(n) ];
+
+    fprintf(fid,[ ...
+     '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
+     '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
+     '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
+     '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
+     '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
+     '%12.8e %12.8e %12.8e %12.8e %12.8e \n'],zz);
+end
+
+fclose(fid);
+%AT
 
 
 return;
