@@ -183,68 +183,56 @@ eta_a_R4  = (5.7/73);   % Mass yield of ash in reaction (R4) [-]
 eta_O2_R4 = 2.0*(1-eta_a_R4); % Oxygen-to-char mass ratio in (R4) [-]
 
 
-%%AT
+% Modified input parameters (consistent with C++ version)
 %%{
-%AT T_end   = 600;
+
+T_end   = 900;
+
 geometry = "cylinder";
-T_end   = 600;
-delta_i = 5e-3;
-%AT G       = 20e+3;   % Averaged irradiation [W/m2]
-%AT G       = 50e+3;   % Averaged irradiation [W/m2]
-%AT G       = 100e+3;  % Averaged irradiation [W/m2]
+delta_i = 0.5e-3;
+
 x_g_O2  = 0.21;    % Oxygen mole fraction [-]
-%AT x_g_O2  = 0.105;   % Oxygen mole fraction [-]
-%AT x_g_O2  = 0.0;     % Oxygen mole fraction [-]
 Y_g_O2  = x_g_O2*32/(x_g_O2*32+(1-x_g_O2)*28); % O2 mass fraction [-]
 Y_O2_i  = Y_g_O2;  % Initial mass fraction of oxygen [-] (gas phase)
-%AT u_g     = 0.0;     % Flow velocity [m/s]
-%AT u_g     = 1.0;     % Flow velocity [m/s]
-%AT u_g     = 10.0;    % Flow velocity [m/s]
-T_g       = 300;
-FMC       = 0.05;
-eta_ds_R1 = 1/(1+FMC);
-psi_ws    = 1-(380/390);
-% Constant volume: eta_ds_R1 = rho_ds*(1-psi_ds)/rho_ws/(1-psi_ws)
-psi_ds    = 1 - eta_ds_R1*(1-psi_ws);
-% Constant volume: eta_c_R2 = rho_c*(1-psi_c)/rho_ds/(1-psi_ds)
-% Constant volume: eta_c_R3 = rho_c*(1-psi_c)/rho_ds/(1-psi_ds)
-psi_c     = 1 - eta_c_R2*(1-psi_ds);
-% Constant volume: eta_a_R4 = rho_a(1-psi_a)/rho_c/(1-psi_c)
-psi_a     = 1 - eta_a_R4*(1-psi_c);
+T_g     = 300;
+u_g     = 1;
+G       = 60e3;
 
-% PBR_Case_tf=120_d=10_G=30_ug=0
-%T_end   = 300;
-%delta_i = 0.5e-3;   % d = 1 mm
-T_end   = 900;
-delta_i = 5e-3;   % d = 10 mm
-G       = 30e+3;
-u_g     = 0;
+% Bulk mass density [kg]
+rho_ds_bulk = 361;  
+rho_c_bulk  = 73;    
+rho_a_bulk  = 5.7;
 
+% Porosity
+psi_ds = 0.0744; % =1-(361/390)
+psi_c  = 0.8128; % =1-(73/390)
+psi_a  = 0.9854; % =1-(5.7/390)
 
-%AT A_R3      = 0;
-%AT A_R4      = 0;
-%}
-%%AT
+% Moisture and wet solid
+FMC = 0.05;
 
+% Properties of wet solid from FMC
+rho_ws_bulk = rho_ds_bulk * (1 + FMC);
+k0_ws  = k0_ds * (1 + 2.1 * FMC);
+nk_ws  = nk_ds;
+c0_ws  = c0_ds * (1 + 5 * FMC);
+nc_ws  = nc_ds;
+psi_ws = max(0.0, 1 - rho_ws_bulk / (rho_ds_bulk/(1-psi_ds)));
 
-%%AT Uncomment the lines below for tests with fixed volume dV
-%{
-rho_ws    = 380;
-rho_ds    = 361;
-rho_c     = 73;
-rho_a     = 5.7;
-psi_ws    = 0.01;
-psi_ds    = 0.01;
-psi_c     = 0.01;
-psi_a     = 0.01;
-eta_ds_R1 = (rho_ds/rho_ws);
-eta_c_R2  = (rho_c/rho_ds);
-eta_c_R3  = (rho_c/rho_ds);
-eta_O2_R3 = 0.1*(1-eta_c_R3);
-eta_a_R4  = (rho_a/rho_c);
-eta_O2_R4 = 2.0*(1-eta_a_R4);
-%}
-%%AT
+% Mass density
+rho_ws = rho_ws_bulk/(1-psi_ws);
+rho_ds = rho_ds_bulk/(1-psi_ds);
+rho_c  = rho_c_bulk/(1-psi_c);
+rho_a  = rho_a_bulk/(1-psi_a);
+
+% Residual yield of R1-R4
+eta_ds_R1 = rho_ds_bulk/rho_ws_bulk;
+eta_c_R2  = rho_c_bulk/rho_ds_bulk;
+eta_c_R3  = rho_c_bulk/rho_ds_bulk;
+eta_a_R4  = rho_a_bulk/rho_c_bulk;
+
+%%}
+
 
 
 end 

@@ -196,6 +196,7 @@ xRR2_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R2
 xRR3_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R3
 xRR4_peak_save  =          zeros(round(n_f/i_output),1); % x-loc of peak R4
 h_conv_save     = h_conv   *ones(round(n_f/i_output),1); % Heat tran. coef.
+eps_surf_save   = eps_ws *ones(round(n_f/i_output),1); % Surf. emissivity
 %AT
 MLR_R1_save     =          zeros(round(n_f/i_output),1); % MLR R1-RR
 MLR_R2_save     =          zeros(round(n_f/i_output),1); % MLR R2-RR
@@ -1039,6 +1040,7 @@ while ((n ~= n_f) && (flag_burnout ~= 2) && (time < T_end))
         xRR4_peak_save(n_output)     = xCenter(i4);
         
         h_conv_save(n_output)        = h_conv;
+        eps_surf_save(n_output)      = eps_surf;
 
         %AT
         MLR_R1_save(n_output)    = MLR_R1tot_new;
@@ -1384,6 +1386,12 @@ plot(time_save(1:n_output),h_conv_save(1:n_output));
 xlabel('Time (s)');
 ylabel('Convective heat transfer coefficient (W/m2/K)');
 
+figure(13); % Surface emissivity [-]
+hold on;
+plot(time_save(1:n_output),eps_surf_save(1:n_output));
+xlabel('Time (s)');
+ylabel('Surface emissivity (-)');
+
 % - Spatial profiles
 
 figure(21);   % Temperature
@@ -1532,6 +1540,7 @@ end
 xlabel('Spatial distance (m)');
 ylabel('Velocity (m/s)');
 
+
 %{
 n=n_output
 plot(XCells_save(1:nx_save(n),n),TEMP_save(1:nx_save(n),n),'-k','LineWidth',3);
@@ -1557,6 +1566,78 @@ ylabel('Mass reaction rates kg/s/m3)','FontSize',16);
 plot(time_save(1:n_output),(0.5*MLR_save(1:n_output)),'-k','LineWidth',3);
 xlabel('Time (s)','FontSize',16);
 ylabel('MLR (kg/s/m2)','FontSize',16);
+%}
+%{
+figure(101);   % Mass loss rate [kg/s/m2]
+set(gca, 'FontSize', 16);
+geometry = "cylinder";
+if geometry=="cylinder"
+    L_cylinder = 1e-0;
+    A_surf     = 2*pi*delta_i*L_cylinder;
+end
+MLR_save    = MLR_save/A_surf;
+hold on;
+plot(time_save(1:n_output),MLR_save(1:n_output),'-k','LineWidth',3);
+xlabel('Time (s)','FontSize',16);
+xlim([0 200]);
+ylabel('MLR (kg/s/m^2)','FontSize',16);
+MLR_save    = MLR_save*A_surf;
+
+figure(121);   % Temperature
+set(gca, 'FontSize', 16);
+n = 166; % ~50 s
+plot(1000*XCells_save(1:nx_save(n),n),TEMP_save(1:nx_save(n),n) ...
+                                      ,'-r','LineWidth',2);
+hold on;
+n = 266; % ~135 s
+plot(1000*XCells_save(1:nx_save(n),n),TEMP_save(1:nx_save(n),n) ...
+                                      ,'-b','LineWidth',2);
+xlabel('Spatial distance (mm)','FontSize',16);
+ylabel('Temperature (K)','FontSize',16);
+ylim([300 1300]);
+
+figure(126);   % Volume fraction of char, ash
+set(gca, 'FontSize', 16);
+n = 166;
+plot(1000*XCells_save(1:nx_save(n),n),XC_save(1:nx_save(n),n) ...
+                                      ,'-r','LineWidth',2);
+hold on;
+n = 266;
+plot(1000*XCells_save(1:nx_save(n),n),XC_save(1:nx_save(n),n) ...
+                                      ,'-b','LineWidth',2);
+xlabel('Spatial distance (mm)','FontSize',16);
+ylabel('Volume fraction of char and ash','FontSize',16);
+
+hold on;
+n = 166;
+plot(1000*XCells_save(1:nx_save(n),n),XA_save(1:nx_save(n),n) ...
+                                      ,'--r','LineWidth',2);
+hold on;
+n = 266;
+plot(1000*XCells_save(1:nx_save(n),n),XA_save(1:nx_save(n),n) ...
+                                      ,'--b','LineWidth',2);
+
+figure(133);   % Mass fraction of gaseous oxygen
+n = 166;
+plot(1000*XCells_save(1:nx_save(n),n),YO2G_save(1:nx_save(n),n) ...
+                                      ,'-r','LineWidth',2);
+hold on;
+n = 266;
+plot(1000*XCells_save(1:nx_save(n),n),YO2G_save(1:nx_save(n),n) ...
+                                      ,'-b','LineWidth',2);
+xlabel('Spatial distance (mm)','FontSize',16);
+ylabel('Mass fraction of gaseous oxygen','FontSize',16);
+
+figure(132);   % Mass reaction rate for char oxidation reaction R4
+n = 166;
+plot(1000*XCells_save(1:nx_save(n),n),RR4_save(1:nx_save(n),n) ...
+                                      ,'-r','LineWidth',2);
+hold on;
+n = 266;
+plot(1000*XCells_save(1:nx_save(n),n),RR4_save(1:nx_save(n),n) ...
+                                      ,'-b','LineWidth',2);
+xlabel('Spatial distance (mm)','FontSize',16);
+ylabel('RR_{co} (kg/s/m^3)','FontSize',16);
 %}
 
 %AT
@@ -1613,7 +1694,8 @@ for n=1:n_output
                          MLR_surf_save(n); ...
                          vel_surf_save(n); ...
                          vel_back_save(n); ...
-                         vel_max_save(n) ];
+                         vel_max_save(n); ...
+                         eps_surf_save(n)];
 
     fprintf(fid,[ ...
      '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
@@ -1621,7 +1703,7 @@ for n=1:n_output
      '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
      '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
      '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e %12.8e ' ...
-     '%12.8e %12.8e %12.8e %12.8e %12.8e \n'],zz);
+     '%12.8e %12.8e %12.8e %12.8e %12.8e %12.8e \n'],zz);
 end
 
 fclose(fid);
